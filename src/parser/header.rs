@@ -97,6 +97,6 @@ impl FileHeader {
         let build = (self.version >> 8) & 0xFF;
         let revision = self.version & 0xFF;
 
-        format!("{}.{}.{}.{}", major, minor, build, revision)
+        format!("{major}.{minor}.{build}.{revision}")
     }
 }

@@ -84,10 +84,10 @@ impl BodyTextParser {
                     if let Some(para) = current_paragraph.take() {
                         current_section.paragraphs.push(para);
                     }
-                    match Paragraph::from_header_record(&record) {
-                        Ok(para) => current_paragraph = Some(para),
-                        Err(_) => {} // Skip invalid paragraph headers
+                    if let Ok(para) = Paragraph::from_header_record(&record) {
+                        current_paragraph = Some(para);
                     }
+                    // Skip invalid paragraph headers
                 }
                 Some(HwpTag::ParaText) => {
                     if let Some(ref mut para) = current_paragraph {

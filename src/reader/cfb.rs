@@ -11,7 +11,7 @@ impl CfbReader<std::fs::File> {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = std::fs::File::open(path)?;
         let cfb = CompoundFile::open(file)
-            .map_err(|e| HwpError::Cfb(format!("Failed to open CFB: {}", e)))?;
+            .map_err(|e| HwpError::Cfb(format!("Failed to open CFB: {e}")))?;
         Ok(Self { cfb })
     }
 }
@@ -19,7 +19,7 @@ impl CfbReader<std::fs::File> {
 impl<F: Read + Seek> CfbReader<F> {
     pub fn new(reader: F) -> Result<Self> {
         let cfb = CompoundFile::open(reader)
-            .map_err(|e| HwpError::Cfb(format!("Failed to open CFB: {}", e)))?;
+            .map_err(|e| HwpError::Cfb(format!("Failed to open CFB: {e}")))?;
         Ok(Self { cfb })
     }
 
@@ -27,7 +27,7 @@ impl<F: Read + Seek> CfbReader<F> {
         let mut stream = self
             .cfb
             .open_stream(path)
-            .map_err(|e| HwpError::NotFound(format!("Stream '{}' not found: {}", path, e)))?;
+            .map_err(|e| HwpError::NotFound(format!("Stream '{path}' not found: {e}")))?;
 
         let mut buffer = Vec::new();
         stream.read_to_end(&mut buffer)?;

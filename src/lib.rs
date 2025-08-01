@@ -48,7 +48,7 @@ impl HwpReader {
         let mut section_idx = 0;
 
         loop {
-            let section_name = format!("BodyText/Section{}", section_idx);
+            let section_name = format!("BodyText/Section{section_idx}");
             if !reader.stream_exists(&section_name) {
                 break;
             }

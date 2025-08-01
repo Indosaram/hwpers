@@ -273,8 +273,7 @@ impl RenderResult {
                     stroke_width,
                 } => {
                     svg.push_str(&format!(
-                        r#"<rect x="{}" y="{}" width="{}" height="{}""#,
-                        x, y, width, height
+                        r#"<rect x="{x}" y="{y}" width="{width}" height="{height}""#
                     ));
 
                     if let Some(fill) = fill_color {
