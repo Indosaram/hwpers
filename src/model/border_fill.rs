@@ -52,22 +52,43 @@ pub struct GradientInfo {
 impl BorderFill {
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
-        
+
         if reader.remaining() < 2 {
-            return Err(crate::error::HwpError::ParseError(
-                format!("BorderFill record too small: {} bytes", reader.remaining())
-            ));
+            return Err(crate::error::HwpError::ParseError(format!(
+                "BorderFill record too small: {} bytes",
+                reader.remaining()
+            )));
         }
-        
+
         let properties = reader.read_u16()?;
-        
+
         // Initialize with defaults
-        let mut left = BorderLine { line_type: 0, thickness: 0, color: 0 };
-        let mut right = BorderLine { line_type: 0, thickness: 0, color: 0 };
-        let mut top = BorderLine { line_type: 0, thickness: 0, color: 0 };
-        let mut bottom = BorderLine { line_type: 0, thickness: 0, color: 0 };
-        let mut diagonal = BorderLine { line_type: 0, thickness: 0, color: 0 };
-        
+        let mut left = BorderLine {
+            line_type: 0,
+            thickness: 0,
+            color: 0,
+        };
+        let mut right = BorderLine {
+            line_type: 0,
+            thickness: 0,
+            color: 0,
+        };
+        let mut top = BorderLine {
+            line_type: 0,
+            thickness: 0,
+            color: 0,
+        };
+        let mut bottom = BorderLine {
+            line_type: 0,
+            thickness: 0,
+            color: 0,
+        };
+        let mut diagonal = BorderLine {
+            line_type: 0,
+            thickness: 0,
+            color: 0,
+        };
+
         // Read border lines if available
         if reader.remaining() >= 6 {
             left = BorderLine::read(&mut reader)?;
@@ -84,7 +105,7 @@ impl BorderFill {
         if reader.remaining() >= 6 {
             diagonal = BorderLine::read(&mut reader)?;
         }
-        
+
         // Read fill info if available
         let fill_info = if reader.remaining() >= 16 {
             FillInfo::read(&mut reader)?
@@ -98,7 +119,7 @@ impl BorderFill {
                 gradient_info: None,
             }
         };
-        
+
         Ok(Self {
             properties,
             left,
@@ -115,10 +136,10 @@ impl BorderLine {
     fn read(reader: &mut StreamReader) -> Result<Self> {
         if reader.remaining() < 6 {
             return Err(crate::error::HwpError::ParseError(
-                "Insufficient data for BorderLine".to_string()
+                "Insufficient data for BorderLine".to_string(),
             ));
         }
-        
+
         Ok(Self {
             line_type: reader.read_u8()?,
             thickness: reader.read_u8()?,
@@ -131,15 +152,15 @@ impl FillInfo {
     fn read(reader: &mut StreamReader) -> Result<Self> {
         if reader.remaining() < 16 {
             return Err(crate::error::HwpError::ParseError(
-                "Insufficient data for FillInfo".to_string()
+                "Insufficient data for FillInfo".to_string(),
             ));
         }
-        
+
         let fill_type = reader.read_u32()?;
         let back_color = reader.read_u32()?;
         let pattern_color = reader.read_u32()?;
         let pattern_type = reader.read_u32()?;
-        
+
         // Read optional image info
         let image_info = if (fill_type & 0x04) != 0 && reader.remaining() >= 6 {
             Some(ImageInfo {
@@ -151,7 +172,7 @@ impl FillInfo {
         } else {
             None
         };
-        
+
         // Read optional gradient info
         let gradient_info = if (fill_type & 0x08) != 0 && reader.remaining() >= 16 {
             Some(GradientInfo {
@@ -166,7 +187,7 @@ impl FillInfo {
         } else {
             None
         };
-        
+
         Ok(Self {
             fill_type,
             back_color,

@@ -18,25 +18,23 @@ impl FileHeader {
                 "FileHeader must be 256 bytes".to_string(),
             ));
         }
-        
+
         let mut reader = StreamReader::new(data);
-        
+
         let mut signature = [0u8; 32];
         signature.copy_from_slice(&reader.read_bytes(32)?);
-        
+
         // Verify signature
         if &signature[..17] != HWP_SIGNATURE {
-            return Err(HwpError::InvalidFormat(
-                "Invalid HWP signature".to_string(),
-            ));
+            return Err(HwpError::InvalidFormat("Invalid HWP signature".to_string()));
         }
-        
+
         let version = reader.read_u32()?;
         let flags = reader.read_u32()?;
-        
+
         let mut reserved = [0u8; 216];
         reserved.copy_from_slice(&reader.read_bytes(216)?);
-        
+
         Ok(Self {
             signature,
             version,
@@ -44,61 +42,61 @@ impl FileHeader {
             reserved,
         })
     }
-    
+
     pub fn is_compressed(&self) -> bool {
         (self.flags & 0x01) != 0
     }
-    
+
     pub fn is_encrypted(&self) -> bool {
         (self.flags & 0x02) != 0
     }
-    
+
     pub fn is_distribute(&self) -> bool {
         (self.flags & 0x04) != 0
     }
-    
+
     pub fn is_script(&self) -> bool {
         (self.flags & 0x08) != 0
     }
-    
+
     pub fn is_drm(&self) -> bool {
         (self.flags & 0x10) != 0
     }
-    
+
     pub fn is_xml_template(&self) -> bool {
         (self.flags & 0x20) != 0
     }
-    
+
     pub fn is_history(&self) -> bool {
         (self.flags & 0x40) != 0
     }
-    
+
     pub fn is_sign(&self) -> bool {
         (self.flags & 0x80) != 0
     }
-    
+
     pub fn is_certificate_encrypt(&self) -> bool {
         (self.flags & 0x100) != 0
     }
-    
+
     pub fn is_sign_spare(&self) -> bool {
         (self.flags & 0x200) != 0
     }
-    
+
     pub fn is_certificate_drm(&self) -> bool {
         (self.flags & 0x400) != 0
     }
-    
+
     pub fn is_ccl(&self) -> bool {
         (self.flags & 0x800) != 0
     }
-    
+
     pub fn version_string(&self) -> String {
         let major = (self.version >> 24) & 0xFF;
         let minor = (self.version >> 16) & 0xFF;
         let build = (self.version >> 8) & 0xFF;
         let revision = self.version & 0xFF;
-        
+
         format!("{}.{}.{}.{}", major, minor, build, revision)
     }
 }

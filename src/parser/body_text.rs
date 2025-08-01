@@ -1,7 +1,10 @@
 use crate::error::Result;
+use crate::model::{
+    CtrlHeader, ListHeader, PageDef, ParaCharShape, ParaLineSeg, ParaText, Paragraph, Section,
+    SectionDef,
+};
+use crate::parser::record::{HwpTag, Record};
 use crate::reader::StreamReader;
-use crate::parser::record::{Record, HwpTag};
-use crate::model::{Section, Paragraph, ParaText, PageDef, SectionDef, ParaCharShape, ParaLineSeg, ListHeader, CtrlHeader};
 use crate::utils::compression::decompress_stream;
 
 pub struct BodyTextParser;
@@ -13,26 +16,27 @@ impl BodyTextParser {
         } else {
             data
         };
-        
+
         let mut reader = StreamReader::new(data);
         let mut sections = Vec::new();
         let mut current_section = Section::default();
         let mut current_paragraph: Option<Paragraph> = None;
-        
+
         let mut first_section = true;
-        
-        while reader.remaining() >= 4 {  // Need at least 4 bytes for record header
+
+        while reader.remaining() >= 4 {
+            // Need at least 4 bytes for record header
             let record = match Record::parse(&mut reader) {
                 Ok(r) => r,
-                Err(_) => break,  // Stop parsing on error
+                Err(_) => break, // Stop parsing on error
             };
-            
+
             match HwpTag::from_u16(record.tag_id()) {
                 // Page Definition - only appears once at the beginning
                 Some(HwpTag::PageDef) => {
                     current_section.page_def = PageDef::from_record(&record).ok();
                 }
-                
+
                 // SectionDefine (0x42) - Actually marks paragraph start in this document
                 Some(HwpTag::SectionDefine) => {
                     // First one is the actual section definition
@@ -47,7 +51,7 @@ impl BodyTextParser {
                         current_paragraph = Some(Paragraph::default());
                     }
                 }
-                
+
                 // Tag 0x43 - Contains text content
                 Some(HwpTag::ColumnDefine) => {
                     if let Some(ref mut para) = current_paragraph {
@@ -56,7 +60,7 @@ impl BodyTextParser {
                         }
                     }
                 }
-                
+
                 // TableControl (0x44) - Contains paragraph properties
                 Some(HwpTag::TableControl) => {
                     if let Some(ref mut para) = current_paragraph {
@@ -74,7 +78,7 @@ impl BodyTextParser {
                         }
                     }
                 }
-                
+
                 // Standard paragraph records (if they exist)
                 Some(HwpTag::ParaHeader) => {
                     if let Some(para) = current_paragraph.take() {
@@ -100,7 +104,7 @@ impl BodyTextParser {
                         para.line_segments = ParaLineSeg::from_record(&record).ok();
                     }
                 }
-                
+
                 // Control Records
                 Some(HwpTag::ListHeader) => {
                     if let Some(ref mut para) = current_paragraph {
@@ -112,20 +116,20 @@ impl BodyTextParser {
                         para.ctrl_header = CtrlHeader::from_record(&record).ok();
                     }
                 }
-                
+
                 _ => {
                     // Skip other tags for now
                 }
             }
         }
-        
+
         // Add last paragraph and section
         if let Some(para) = current_paragraph {
             current_section.paragraphs.push(para);
         }
         // Always add the section even if empty - there's at least one section
         sections.push(current_section);
-        
+
         Ok(BodyText { sections })
     }
 }
@@ -138,7 +142,7 @@ pub struct BodyText {
 impl BodyText {
     pub fn extract_text(&self) -> String {
         let mut result = String::new();
-        
+
         for section in &self.sections {
             for para in &section.paragraphs {
                 if let Some(ref text) = para.text {
@@ -147,7 +151,7 @@ impl BodyText {
                 }
             }
         }
-        
+
         result
     }
 }

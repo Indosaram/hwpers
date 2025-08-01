@@ -1,12 +1,12 @@
 use crate::error::Result;
-use crate::reader::StreamReader;
-use crate::parser::record::{Record, HwpTag};
-use crate::model::{DocumentProperties, FaceName, CharShape, ParaShape};
-use crate::model::style::Style;
-use crate::model::border_fill::BorderFill;
-use crate::model::tab_def::TabDef;
-use crate::model::numbering::{Numbering, Bullet};
 use crate::model::bin_data::BinData;
+use crate::model::border_fill::BorderFill;
+use crate::model::numbering::{Bullet, Numbering};
+use crate::model::style::Style;
+use crate::model::tab_def::TabDef;
+use crate::model::{CharShape, DocumentProperties, FaceName, ParaShape};
+use crate::parser::record::{HwpTag, Record};
+use crate::reader::StreamReader;
 use crate::utils::compression::decompress_stream;
 
 pub struct DocInfoParser;
@@ -18,16 +18,17 @@ impl DocInfoParser {
         } else {
             data
         };
-        
+
         let mut reader = StreamReader::new(data);
         let mut doc_info = DocInfo::default();
-        
-        while reader.remaining() >= 4 {  // Need at least 4 bytes for record header
+
+        while reader.remaining() >= 4 {
+            // Need at least 4 bytes for record header
             let record = match Record::parse(&mut reader) {
                 Ok(r) => r,
-                Err(_) => break,  // Stop parsing on error
+                Err(_) => break, // Stop parsing on error
             };
-            
+
             match HwpTag::from_u16(record.tag_id()) {
                 Some(HwpTag::DocumentProperties) => {
                     doc_info.properties = Some(DocumentProperties::from_record(&record)?);
@@ -45,7 +46,9 @@ impl DocInfoParser {
                     doc_info.styles.push(Style::from_record(&record)?);
                 }
                 Some(HwpTag::BorderFill) => {
-                    doc_info.border_fills.push(BorderFill::from_record(&record)?);
+                    doc_info
+                        .border_fills
+                        .push(BorderFill::from_record(&record)?);
                 }
                 Some(HwpTag::TabDef) => {
                     doc_info.tab_defs.push(TabDef::from_record(&record)?);
@@ -64,7 +67,7 @@ impl DocInfoParser {
                 }
             }
         }
-        
+
         Ok(doc_info)
     }
 }

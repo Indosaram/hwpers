@@ -1,5 +1,5 @@
-use encoding_rs::UTF_16LE;
 use crate::error::{HwpError, Result};
+use encoding_rs::UTF_16LE;
 
 pub fn utf16le_to_string(data: &[u8]) -> Result<String> {
     let (cow, _, had_errors) = UTF_16LE.decode(data);

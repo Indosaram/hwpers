@@ -15,22 +15,23 @@ pub struct Style {
 impl Style {
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
-        
+
         if reader.remaining() < 10 {
-            return Err(crate::error::HwpError::ParseError(
-                format!("Style record too small: {} bytes", reader.remaining())
-            ));
+            return Err(crate::error::HwpError::ParseError(format!(
+                "Style record too small: {} bytes",
+                reader.remaining()
+            )));
         }
-        
+
         // Read name length and name
         let name_len = reader.read_u16()? as usize;
         if reader.remaining() < name_len * 2 {
             return Err(crate::error::HwpError::ParseError(
-                "Invalid style name length".to_string()
+                "Invalid style name length".to_string(),
             ));
         }
         let name = reader.read_string(name_len * 2)?;
-        
+
         // Read English name length and name
         let english_name = if reader.remaining() >= 2 {
             let english_name_len = reader.read_u16()? as usize;
@@ -42,20 +43,20 @@ impl Style {
         } else {
             String::new()
         };
-        
+
         // Read remaining fields
         if reader.remaining() < 8 {
             return Err(crate::error::HwpError::ParseError(
-                "Insufficient data for style properties".to_string()
+                "Insufficient data for style properties".to_string(),
             ));
         }
-        
+
         let properties = reader.read_u8()?;
         let next_style_id = reader.read_u8()?;
         let lang_id = reader.read_u16()?;
         let para_shape_id = reader.read_u16()?;
         let char_shape_id = reader.read_u16()?;
-        
+
         Ok(Self {
             name,
             english_name,

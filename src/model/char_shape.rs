@@ -1,5 +1,5 @@
-use crate::parser::record::Record;
 use crate::error::Result;
+use crate::parser::record::Record;
 
 #[derive(Debug, Clone)]
 pub struct CharShape {
@@ -24,64 +24,65 @@ impl CharShape {
         // Bold is bit 0 of properties
         self.properties & 0x1 != 0
     }
-    
+
     pub fn is_italic(&self) -> bool {
         // Italic is bit 1 of properties
         self.properties & 0x2 != 0
     }
-    
+
     pub fn is_underline(&self) -> bool {
         // Underline type is bits 2-4, non-zero means underlined
         (self.properties >> 2) & 0x7 != 0
     }
-    
+
     pub fn is_strikethrough(&self) -> bool {
         // Strikethrough type is bits 5-7, non-zero means strikethrough
         (self.properties >> 5) & 0x7 != 0
     }
-    
+
     pub fn get_outline_type(&self) -> u8 {
         // Outline type is bits 8-10
         ((self.properties >> 8) & 0x7) as u8
     }
-    
+
     pub fn get_shadow_type(&self) -> u8 {
         // Shadow type is bits 11-12
         ((self.properties >> 11) & 0x3) as u8
     }
-    
+
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
-        
+
         // Check minimum size
         if reader.remaining() < 72 {
-            return Err(crate::error::HwpError::ParseError(
-                format!("CharShape record too small: {} bytes", reader.remaining())
-            ));
+            return Err(crate::error::HwpError::ParseError(format!(
+                "CharShape record too small: {} bytes",
+                reader.remaining()
+            )));
         }
-        
+
         let mut face_name_ids = [0u16; 7];
         let mut ratios = [0u8; 7];
         let mut char_spaces = [0i8; 7];
         let mut relative_sizes = [0u8; 7];
         let mut char_offsets = [0i8; 7];
-        
-        for i in 0..7 {
-            face_name_ids[i] = reader.read_u16()?;
+
+        for item in &mut face_name_ids {
+            *item = reader.read_u16()?;
         }
-        for i in 0..7 {
-            ratios[i] = reader.read_u8()?;
+        for item in &mut ratios {
+            *item = reader.read_u8()?;
         }
-        for i in 0..7 {
-            char_spaces[i] = reader.read_u8()? as i8;
+        for item in &mut char_spaces {
+            *item = reader.read_u8()? as i8;
         }
-        for i in 0..7 {
-            relative_sizes[i] = reader.read_u8()?;
+        for item in &mut relative_sizes {
+            *item = reader.read_u8()?;
         }
-        for i in 0..7 {
-            char_offsets[i] = reader.read_u8()? as i8;
+        for item in &mut char_offsets {
+            *item = reader.read_u8()? as i8;
         }
-        
+
         Ok(Self {
             face_name_ids,
             ratios,
@@ -114,29 +115,29 @@ pub struct FaceName {
 impl FaceName {
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
-        
+
         if reader.remaining() < 7 {
             return Err(crate::error::HwpError::ParseError(
-                "FaceName record too small".to_string()
+                "FaceName record too small".to_string(),
             ));
         }
-        
+
         let properties = reader.read_u8()?;
         let font_name_len = reader.read_u16()? as usize;
-        
+
         if reader.remaining() < font_name_len * 2 {
             return Err(crate::error::HwpError::ParseError(
-                "Invalid font name length".to_string()
+                "Invalid font name length".to_string(),
             ));
         }
         let font_name = reader.read_string(font_name_len * 2)?;
-        
+
         // Default values for optional fields
         let mut substitute_font_type = 0;
         let mut substitute_font_name = String::new();
         let mut panose = None;
         let mut default_font_name = String::new();
-        
+
         // Read optional fields if available
         if reader.remaining() >= 3 {
             substitute_font_type = reader.read_u8()?;
@@ -147,16 +148,16 @@ impl FaceName {
                 }
             }
         }
-        
+
         // Read panose if flag is set and data available
         if properties & 0x80 != 0 && reader.remaining() >= 10 {
             let mut p = [0u8; 10];
-            for i in 0..10 {
-                p[i] = reader.read_u8()?;
+            for item in &mut p {
+                *item = reader.read_u8()?;
             }
             panose = Some(p);
         }
-        
+
         // Read default font name if available
         if reader.remaining() >= 2 {
             let default_font_name_len = reader.read_u16()? as usize;
@@ -164,7 +165,7 @@ impl FaceName {
                 default_font_name = reader.read_string(default_font_name_len * 2)?;
             }
         }
-        
+
         Ok(Self {
             properties,
             font_name,

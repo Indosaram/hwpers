@@ -1,22 +1,22 @@
-use hwpers::{HwpReader};
+use hwpers::HwpReader;
 use std::env;
 use std::path::Path;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() != 2 {
         eprintln!("Usage: {} <hwp_file>", args[0]);
         std::process::exit(1);
     }
-    
+
     let file_path = Path::new(&args[1]);
-    
+
     if !file_path.exists() {
         eprintln!("File not found: {:?}", file_path);
         std::process::exit(1);
     }
-    
+
     // First, try to read as CFB
     match hwpers::reader::CfbReader::from_file(file_path) {
         Ok(mut reader) => {
@@ -25,7 +25,7 @@ fn main() {
             for stream in reader.list_streams() {
                 println!("  - {}", stream);
             }
-            
+
             // Try to read FileHeader
             match reader.read_stream("FileHeader") {
                 Ok(data) => {
@@ -45,7 +45,7 @@ fn main() {
             std::process::exit(1);
         }
     }
-    
+
     println!("\nTrying full parse...");
     match HwpReader::from_file(file_path) {
         Ok(doc) => {
@@ -54,7 +54,7 @@ fn main() {
             println!("Compressed: {}", doc.header.is_compressed());
             let section_count = doc.sections().count();
             println!("Sections: {}", section_count);
-            
+
             if section_count == 0 {
                 println!("\nNo sections found. Body texts: {}", doc.body_texts.len());
                 for (i, bt) in doc.body_texts.iter().enumerate() {

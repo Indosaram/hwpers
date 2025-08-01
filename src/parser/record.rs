@@ -12,7 +12,7 @@ impl RecordHeader {
     pub fn parse(reader: &mut StreamReader) -> Result<Self> {
         // Read single 32-bit header
         let header = reader.read_u32()?;
-        
+
         // Extract fields from packed header
         // Bits 0-9: tag_id (10 bits)
         // Bits 10-19: level (10 bits)
@@ -20,12 +20,12 @@ impl RecordHeader {
         let tag_id = (header & 0x3FF) as u16;
         let level = ((header >> 10) & 0x3FF) as u8;
         let mut size = header >> 20;
-        
+
         // If size is 0xFFF (4095), read extended size
         if size == 0xFFF {
             size = reader.read_u32()?;
         }
-        
+
         Ok(Self {
             tag_id,
             level,
@@ -43,32 +43,34 @@ pub struct Record {
 impl Record {
     pub fn parse(reader: &mut StreamReader) -> Result<Self> {
         if reader.remaining() < 4 {
-            return Err(crate::error::HwpError::ParseError("Not enough data for record header".to_string()));
+            return Err(crate::error::HwpError::ParseError(
+                "Not enough data for record header".to_string(),
+            ));
         }
-        
+
         let header = RecordHeader::parse(reader)?;
-        
+
         // Size field contains the data size (without header)
         let data_size = header.size as usize;
-        
+
         if data_size > reader.remaining() {
             return Err(crate::error::HwpError::ParseError(format!(
-                "Record size {} exceeds remaining data {}", 
-                data_size, 
+                "Record size {} exceeds remaining data {}",
+                data_size,
                 reader.remaining()
             )));
         }
-        
+
         // Read data bytes
         let data = reader.read_bytes(data_size)?;
-        
+
         Ok(Self { header, data })
     }
-    
+
     pub fn tag_id(&self) -> u16 {
         self.header.tag_id
     }
-    
+
     pub fn data_reader(&self) -> StreamReader {
         StreamReader::new(self.data.clone())
     }
@@ -91,7 +93,7 @@ pub enum HwpTag {
     Style = 0x1A,
     DocData = 0x1B,
     DistributeDocData = 0x1C,
-    
+
     // BodyText - Section Definition
     SectionDefine = 0x42,
     ColumnDefine = 0x43,
@@ -128,7 +130,7 @@ pub enum HwpTag {
     ShapeComponentOle = 0x63,
     ShapeComponentPicture = 0x64,
     ShapeComponentContainer = 0x65,
-    
+
     // Embedded controls
     EqEdit = 0x70,
     Reserved1 = 0x71,

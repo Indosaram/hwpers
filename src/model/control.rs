@@ -54,13 +54,14 @@ pub struct TableCell {
 impl Table {
     pub fn from_record(record: &crate::parser::record::Record) -> crate::error::Result<Self> {
         let mut reader = record.data_reader();
-        
+
         if reader.remaining() < 20 {
-            return Err(crate::error::HwpError::ParseError(
-                format!("Table record too small: {} bytes", reader.remaining())
-            ));
+            return Err(crate::error::HwpError::ParseError(format!(
+                "Table record too small: {} bytes",
+                reader.remaining()
+            )));
         }
-        
+
         let properties = reader.read_u32()?;
         let rows = reader.read_u16()?;
         let cols = reader.read_u16()?;
@@ -69,16 +70,16 @@ impl Table {
         let right_margin = reader.read_i32()?;
         let top_margin = reader.read_i32()?;
         let bottom_margin = reader.read_i32()?;
-        
+
         // Read cells if available
         let mut cells = Vec::new();
         let total_cells = (rows * cols) as usize;
-        
+
         for _ in 0..total_cells {
             if reader.remaining() < 34 {
                 break; // Not enough data for a complete cell
             }
-            
+
             let cell = TableCell {
                 list_header_id: reader.read_u32()?,
                 col_span: reader.read_u16()?,
@@ -106,7 +107,7 @@ impl Table {
             };
             cells.push(cell);
         }
-        
+
         Ok(Self {
             properties,
             rows,

@@ -41,17 +41,17 @@ impl Numbering {
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
         let mut levels = Vec::new();
-        
+
         // Read numbering levels - typically 7 levels maximum
         for _ in 0..7 {
             if reader.remaining() < 20 {
                 break; // Not enough data for a complete level
             }
-            
+
             let para_shape_id = reader.read_u16()?;
             let number_format = reader.read_u8()?;
             let number_type = reader.read_u8()?;
-            
+
             // Read prefix text
             let prefix_len = reader.read_u16()? as usize;
             let prefix_text = if reader.remaining() >= prefix_len * 2 {
@@ -59,7 +59,7 @@ impl Numbering {
             } else {
                 String::new()
             };
-            
+
             // Read suffix text
             let suffix_len = reader.read_u16()? as usize;
             let suffix_text = if reader.remaining() >= suffix_len * 2 {
@@ -67,7 +67,7 @@ impl Numbering {
             } else {
                 String::new()
             };
-            
+
             if reader.remaining() >= 10 {
                 let level = NumberingLevel {
                     para_shape_id,
@@ -85,7 +85,7 @@ impl Numbering {
                 levels.push(level);
             }
         }
-        
+
         Ok(Self { levels })
     }
 }
@@ -93,15 +93,16 @@ impl Numbering {
 impl Bullet {
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
-        
+
         if reader.remaining() < 6 {
-            return Err(crate::error::HwpError::ParseError(
-                format!("Bullet record too small: {} bytes", reader.remaining())
-            ));
+            return Err(crate::error::HwpError::ParseError(format!(
+                "Bullet record too small: {} bytes",
+                reader.remaining()
+            )));
         }
-        
+
         let para_shape_id = reader.read_u16()?;
-        
+
         // Read bullet character
         let bullet_char_len = reader.read_u16()? as usize;
         let bullet_char = if reader.remaining() >= bullet_char_len * 2 {
@@ -109,9 +110,9 @@ impl Bullet {
         } else {
             String::new()
         };
-        
+
         let char_shape_id = reader.read_u16()?;
-        
+
         // Check for image bullet
         let use_image = reader.remaining() >= 6;
         let image_bullet = if use_image {
@@ -123,7 +124,7 @@ impl Bullet {
         } else {
             None
         };
-        
+
         Ok(Self {
             para_shape_id,
             bullet_char,
@@ -138,23 +139,23 @@ impl NumberingLevel {
     pub fn is_decimal(&self) -> bool {
         self.number_type == 0
     }
-    
+
     pub fn is_circle_num(&self) -> bool {
         self.number_type == 1
     }
-    
+
     pub fn is_lower_roman(&self) -> bool {
         self.number_type == 2
     }
-    
+
     pub fn is_upper_roman(&self) -> bool {
         self.number_type == 3
     }
-    
+
     pub fn is_lower_alpha(&self) -> bool {
         self.number_type == 4
     }
-    
+
     pub fn is_upper_alpha(&self) -> bool {
         self.number_type == 5
     }

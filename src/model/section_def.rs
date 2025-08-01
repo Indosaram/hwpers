@@ -19,13 +19,14 @@ pub struct SectionDef {
 impl SectionDef {
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
-        
+
         if reader.remaining() < 26 {
-            return Err(crate::error::HwpError::ParseError(
-                format!("SectionDef record too small: {} bytes", reader.remaining())
-            ));
+            return Err(crate::error::HwpError::ParseError(format!(
+                "SectionDef record too small: {} bytes",
+                reader.remaining()
+            )));
         }
-        
+
         Ok(Self {
             properties: reader.read_u32()?,
             column_gap: reader.read_u16()?,
@@ -37,22 +38,26 @@ impl SectionDef {
             image_starting_number: reader.read_u16()?,
             table_starting_number: reader.read_u16()?,
             equation_starting_number: reader.read_u16()?,
-            default_language: if reader.remaining() >= 2 { reader.read_u16()? } else { 0 },
+            default_language: if reader.remaining() >= 2 {
+                reader.read_u16()?
+            } else {
+                0
+            },
         })
     }
-    
+
     pub fn column_count(&self) -> u16 {
         ((self.properties >> 20) & 0xFF) as u16 + 1
     }
-    
+
     pub fn is_hide_header(&self) -> bool {
         (self.properties & 0x01) != 0
     }
-    
+
     pub fn is_hide_footer(&self) -> bool {
         (self.properties & 0x02) != 0
     }
-    
+
     pub fn is_hide_page_number(&self) -> bool {
         (self.properties & 0x04) != 0
     }

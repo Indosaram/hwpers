@@ -22,7 +22,7 @@ impl ParaLineSeg {
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
         let mut line_segments = Vec::new();
-        
+
         // Each line segment is 32 bytes
         while reader.remaining() >= 32 {
             let segment = LineSegment {
@@ -35,27 +35,27 @@ impl ParaLineSeg {
                 segment_width: reader.read_i32()?,
                 properties: reader.read_u32()?,
             };
-            
+
             line_segments.push(segment);
         }
-        
+
         Ok(Self { line_segments })
     }
-    
+
     /// Get the total height of all lines
     pub fn total_height(&self) -> i32 {
-        self.line_segments.iter()
-            .map(|seg| seg.line_height)
-            .sum()
+        self.line_segments.iter().map(|seg| seg.line_height).sum()
     }
-    
+
     /// Get the line segment that contains a specific text position
     pub fn get_line_at_position(&self, text_pos: u32) -> Option<&LineSegment> {
         for (i, segment) in self.line_segments.iter().enumerate() {
-            let next_pos = self.line_segments.get(i + 1)
+            let next_pos = self
+                .line_segments
+                .get(i + 1)
                 .map(|s| s.text_start_position)
                 .unwrap_or(u32::MAX);
-            
+
             if text_pos >= segment.text_start_position && text_pos < next_pos {
                 return Some(segment);
             }
@@ -68,15 +68,15 @@ impl LineSegment {
     pub fn is_first_line(&self) -> bool {
         (self.properties & 0x01) != 0
     }
-    
+
     pub fn is_last_line(&self) -> bool {
         (self.properties & 0x02) != 0
     }
-    
+
     pub fn is_empty_line(&self) -> bool {
         (self.properties & 0x04) != 0
     }
-    
+
     pub fn has_line_control(&self) -> bool {
         (self.properties & 0x08) != 0
     }

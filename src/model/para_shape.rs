@@ -1,5 +1,5 @@
-use crate::parser::record::Record;
 use crate::error::Result;
+use crate::parser::record::Record;
 
 #[derive(Debug, Clone)]
 pub struct ParaShape {
@@ -27,14 +27,14 @@ impl ParaShape {
         // Alignment is stored in bits 2-4 of properties1
         ((self.properties1 >> 2) & 0x7) as u8
     }
-    
+
     pub fn get_line_spacing_percent(&self) -> i32 {
         // Line spacing depends on line_space_type
         match self.line_space_type {
             0 => self.line_space, // Percentage (e.g., 160 = 160%)
             1 => self.line_space, // Fixed value in HWP units
             2 => self.line_space, // At least this value
-            _ => 100, // Default 100%
+            _ => 100,             // Default 100%
         }
     }
 }
@@ -42,13 +42,14 @@ impl ParaShape {
 impl ParaShape {
     pub fn from_record(record: &Record) -> Result<Self> {
         let mut reader = record.data_reader();
-        
+
         if reader.remaining() < 54 {
-            return Err(crate::error::HwpError::ParseError(
-                format!("ParaShape record too small: {} bytes", reader.remaining())
-            ));
+            return Err(crate::error::HwpError::ParseError(format!(
+                "ParaShape record too small: {} bytes",
+                reader.remaining()
+            )));
         }
-        
+
         Ok(Self {
             properties1: reader.read_u32()?,
             left_margin: reader.read_i32()?,

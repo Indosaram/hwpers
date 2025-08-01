@@ -1,17 +1,17 @@
 pub mod error;
-pub mod reader;
-pub mod parser;
 pub mod model;
-pub mod utils;
+pub mod parser;
+pub mod reader;
 pub mod render;
+pub mod utils;
 
-use std::path::Path;
 use std::io::{Read, Seek};
+use std::path::Path;
 
 pub use crate::error::{HwpError, Result};
 pub use crate::model::HwpDocument;
+use crate::parser::{body_text::BodyTextParser, doc_info::DocInfoParser, header::FileHeader};
 use crate::reader::CfbReader;
-use crate::parser::{header::FileHeader, doc_info::DocInfoParser, body_text::BodyTextParser};
 
 pub struct HwpReader;
 
@@ -20,48 +20,52 @@ impl HwpReader {
         let reader = CfbReader::from_file(path)?;
         Self::parse_document(reader)
     }
-    
+
     pub fn from_bytes(bytes: &[u8]) -> Result<HwpDocument> {
         let cursor = std::io::Cursor::new(bytes.to_vec());
         let reader = CfbReader::new(cursor)?;
         Self::parse_document(reader)
     }
-    
+
     fn parse_document<F: Read + Seek>(mut reader: CfbReader<F>) -> Result<HwpDocument> {
         // Parse FileHeader
         let header_data = reader.read_stream("FileHeader")?;
         let header = FileHeader::parse(header_data)?;
-        
+
         // Check if the document is encrypted
         if header.is_encrypted() {
-            return Err(HwpError::UnsupportedVersion("Encrypted documents are not supported".to_string()));
+            return Err(HwpError::UnsupportedVersion(
+                "Encrypted documents are not supported".to_string(),
+            ));
         }
-        
+
         // Parse DocInfo
         let doc_info_data = reader.read_stream("DocInfo")?;
         let doc_info = DocInfoParser::parse(doc_info_data, header.is_compressed())?;
-        
+
         // Parse BodyText sections
         let mut body_texts = Vec::new();
         let mut section_idx = 0;
-        
+
         loop {
             let section_name = format!("BodyText/Section{}", section_idx);
             if !reader.stream_exists(&section_name) {
                 break;
             }
-            
+
             let section_data = reader.read_stream(&section_name)?;
             let body_text = BodyTextParser::parse(section_data, header.is_compressed())?;
             body_texts.push(body_text);
-            
+
             section_idx += 1;
         }
-        
+
         if body_texts.is_empty() {
-            return Err(HwpError::InvalidFormat("No BodyText sections found".to_string()));
+            return Err(HwpError::InvalidFormat(
+                "No BodyText sections found".to_string(),
+            ));
         }
-        
+
         Ok(HwpDocument {
             header,
             doc_info,
@@ -74,11 +78,11 @@ impl HwpReader {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    
+
     fn test_file_path(name: &str) -> PathBuf {
         PathBuf::from("test-files").join(name)
     }
-    
+
     #[test]
     fn test_reader_creation() {
         // Test that we can create a reader
@@ -88,8 +92,8 @@ mod tests {
             assert!(result.is_ok() || result.is_err()); // Either parse or fail gracefully
         }
     }
-    
-    #[test] 
+
+    #[test]
     fn test_file_header_signature() {
         let signature = b"HWP Document File";
         assert_eq!(signature.len(), 17);
