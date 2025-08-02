@@ -8,6 +8,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
   create_release:
     name: Create Release
@@ -15,16 +18,17 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        name: Release ${{ github.ref_name }}
         draft: false
         prerelease: false
+        generate_release_notes: true
 
   test:
     name: Test before release
@@ -49,6 +53,6 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
     - name: Login to crates.io
-      run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
     - name: Publish to crates.io
       run: cargo publish --all-features

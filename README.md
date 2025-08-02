@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/hwpers.svg)](https://crates.io/crates/hwpers)
 [![Documentation](https://docs.rs/hwpers/badge.svg)](https://docs.rs/hwpers)
-[![CI](https://github.com/yourusername/hwpers/workflows/CI/badge.svg)](https://github.com/yourusername/hwpers/actions)
+[![CI](https://github.com/Indosaram/hwpers/workflows/CI/badge.svg)](https://github.com/Indosaram/hwpers/actions)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
 A Rust library for parsing Korean Hangul Word Processor (HWP) files with full layout rendering support.
