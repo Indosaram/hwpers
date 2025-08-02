@@ -13,7 +13,7 @@ fn main() {
     let file_path = Path::new(&args[1]);
 
     if !file_path.exists() {
-        eprintln!("File not found: {:?}", file_path);
+        eprintln!("File not found: {file_path:?}");
         std::process::exit(1);
     }
 
@@ -23,7 +23,7 @@ fn main() {
             println!("CFB structure detected!");
             println!("Available streams:");
             for stream in reader.list_streams() {
-                println!("  - {}", stream);
+                println!("  - {stream}");
             }
 
             // Try to read FileHeader
@@ -32,16 +32,16 @@ fn main() {
                     println!("\nFileHeader stream: {} bytes", data.len());
                     if data.len() >= 32 {
                         let signature = String::from_utf8_lossy(&data[..32]);
-                        println!("Signature: {:?}", signature);
+                        println!("Signature: {signature:?}");
                     }
                 }
                 Err(e) => {
-                    println!("Error reading FileHeader: {}", e);
+                    println!("Error reading FileHeader: {e}");
                 }
             }
         }
         Err(e) => {
-            eprintln!("Not a valid CFB file: {}", e);
+            eprintln!("Not a valid CFB file: {e}");
             std::process::exit(1);
         }
     }
@@ -53,7 +53,7 @@ fn main() {
             println!("Version: {}", doc.header.version_string());
             println!("Compressed: {}", doc.header.is_compressed());
             let section_count = doc.sections().count();
-            println!("Sections: {}", section_count);
+            println!("Sections: {section_count}");
 
             if section_count == 0 {
                 println!("\nNo sections found. Body texts: {}", doc.body_texts.len());
@@ -63,7 +63,7 @@ fn main() {
             }
         }
         Err(e) => {
-            println!("Parse error: {}", e);
+            println!("Parse error: {e}");
         }
     }
 }

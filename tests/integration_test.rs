@@ -9,7 +9,7 @@ fn test_file_path(name: &str) -> PathBuf {
 fn test_basic_parsing() {
     let path = test_file_path("test_document.hwp");
     if !path.exists() {
-        eprintln!("Skipping test: test file not found at {:?}", path);
+        eprintln!("Skipping test: test file not found at {path:?}");
         return;
     }
 
@@ -26,7 +26,7 @@ fn test_basic_parsing() {
 fn test_text_extraction() {
     let path = test_file_path("test_document.hwp");
     if !path.exists() {
-        eprintln!("Skipping test: test file not found at {:?}", path);
+        eprintln!("Skipping test: test file not found at {path:?}");
         return;
     }
 
@@ -44,7 +44,7 @@ fn test_text_extraction() {
 fn test_from_bytes() {
     let path = test_file_path("test_document.hwp");
     if !path.exists() {
-        eprintln!("Skipping test: test file not found at {:?}", path);
+        eprintln!("Skipping test: test file not found at {path:?}");
         return;
     }
 
