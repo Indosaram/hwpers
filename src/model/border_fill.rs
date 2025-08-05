@@ -131,6 +131,33 @@ impl BorderFill {
         })
     }
 }
+impl BorderFill {
+    /// Create a new default BorderFill for writing
+    pub fn new_default() -> Self {
+        let default_border = BorderLine {
+            line_type: 0,     // No border
+            thickness: 0,
+            color: 0x000000,  // Black
+        };
+
+        Self {
+            properties: 0,
+            left: default_border.clone(),
+            right: default_border.clone(),
+            top: default_border.clone(),
+            bottom: default_border.clone(),
+            diagonal: default_border,
+            fill_info: FillInfo {
+                fill_type: 0,           // No fill
+                back_color: 0xFFFFFFFF, // White background
+                pattern_color: 0,
+                pattern_type: 0,
+                image_info: None,
+                gradient_info: None,
+            },
+        }
+    }
+}
 
 impl BorderLine {
     fn read(reader: &mut StreamReader) -> Result<Self> {

@@ -70,4 +70,27 @@ impl ParaShape {
             line_space_type: reader.read_u32()?,
         })
     }
+
+    /// Create a new default ParaShape for writing
+    pub fn new_default() -> Self {
+        Self {
+            properties1: 0x04,      // Left alignment (bits 2-4 = 001)
+            left_margin: 0,
+            right_margin: 0,
+            indent: 0,
+            top_para_space: 0,
+            bottom_para_space: 0,
+            line_space: 160,        // 160% line spacing
+            tab_def_id: 0,
+            numbering_id: 0,
+            border_fill_id: 0,
+            border_left_space: 0,
+            border_right_space: 0,
+            border_top_space: 0,
+            border_bottom_space: 0,
+            properties2: 0,
+            properties3: 0,
+            line_space_type: 0,     // Percentage
+        }
+    }
 }

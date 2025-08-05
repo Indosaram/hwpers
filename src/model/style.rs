@@ -68,3 +68,17 @@ impl Style {
         })
     }
 }
+impl Style {
+    /// Create a new default Style for writing
+    pub fn new_default() -> Self {
+        Self {
+            name: "바탕글".to_string(),
+            english_name: "Normal".to_string(),
+            properties: 0,
+            next_style_id: 0,
+            lang_id: 0x0412, // Korean language ID
+            para_shape_id: 0,
+            char_shape_id: 0,
+        }
+    }
+}

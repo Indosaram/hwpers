@@ -101,6 +101,27 @@ impl CharShape {
         })
     }
 }
+impl CharShape {
+    /// Create a new default CharShape for writing
+    pub fn new_default() -> Self {
+        Self {
+            face_name_ids: [0; 7],  // Use first font (index 0)
+            ratios: [100; 7],       // 100% ratio
+            char_spaces: [0; 7],    // No character spacing
+            relative_sizes: [100; 7], // 100% relative size
+            char_offsets: [0; 7],   // No offset
+            base_size: 1200,        // 12pt (100 units per point)
+            properties: 0,          // No bold, italic, etc.
+            shadow_gap_x: 0,
+            shadow_gap_y: 0,
+            text_color: 0x000000,   // Black text
+            underline_color: 0x000000,
+            shade_color: 0xFFFFFF,  // White shade
+            shadow_color: 0x808080, // Gray shadow
+            border_fill_id: 0,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct FaceName {
@@ -174,5 +195,18 @@ impl FaceName {
             panose,
             default_font_name,
         })
+    }
+}
+impl FaceName {
+    /// Create a new default FaceName for writing
+    pub fn new_default(font_name: String) -> Self {
+        Self {
+            properties: 0,
+            font_name,
+            substitute_font_type: 0,
+            substitute_font_name: String::new(),
+            panose: None,
+            default_font_name: String::new(),
+        }
     }
 }

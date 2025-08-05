@@ -41,6 +41,15 @@ impl TabDef {
         Ok(Self { properties, tabs })
     }
 }
+impl TabDef {
+    /// Create a new default TabDef for writing
+    pub fn new_default() -> Self {
+        Self {
+            properties: 0,
+            tabs: Vec::new(), // No tabs defined by default
+        }
+    }
+}
 
 impl Tab {
     pub fn is_left_aligned(&self) -> bool {

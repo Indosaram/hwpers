@@ -19,7 +19,7 @@ include = [
 ]
 
 [dependencies]
-cfb = "0.9"
+cfb = "0.11.0"
 flate2 = "1.0"
 encoding_rs = "0.8"
 byteorder = "1.5"

@@ -100,3 +100,27 @@ impl FileHeader {
         format!("{major}.{minor}.{build}.{revision}")
     }
 }
+impl FileHeader {
+    /// Create a new default FileHeader for writing
+    pub fn new_default() -> Self {
+        let mut signature = [0u8; 32];
+        signature[..17].copy_from_slice(HWP_SIGNATURE);
+        
+        Self {
+            signature,
+            version: 0x05050114, // HWP 5.0.5.1 version
+            flags: 0x01, // Enable compression
+            reserved: [0u8; 216],
+        }
+    }
+
+    /// Convert FileHeader to bytes for writing
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(256);
+        bytes.extend_from_slice(&self.signature);
+        bytes.extend_from_slice(&self.version.to_le_bytes());
+        bytes.extend_from_slice(&self.flags.to_le_bytes());
+        bytes.extend_from_slice(&self.reserved);
+        bytes
+    }
+}
