@@ -105,11 +105,11 @@ impl FileHeader {
     pub fn new_default() -> Self {
         let mut signature = [0u8; 32];
         signature[..17].copy_from_slice(HWP_SIGNATURE);
-        
+
         Self {
             signature,
             version: 0x05050114, // HWP 5.0.5.1 version
-            flags: 0x01, // Enable compression
+            flags: 0x01,         // Enable compression
             reserved: [0u8; 216],
         }
     }

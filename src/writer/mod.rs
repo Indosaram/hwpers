@@ -2,21 +2,16 @@ pub mod serializer;
 
 use crate::error::{HwpError, Result};
 use crate::model::{
-    HwpDocument, 
-    document::DocumentProperties,
-    paragraph::{Section, Paragraph, ParaText},
-    char_shape::{CharShape, FaceName},
-    para_shape::ParaShape,
-    style::Style,
     border_fill::BorderFill,
+    char_shape::{CharShape, FaceName},
+    document::DocumentProperties,
+    para_shape::ParaShape,
+    paragraph::{ParaText, Paragraph, Section},
+    style::Style,
     tab_def::TabDef,
-
+    HwpDocument,
 };
-use crate::parser::{
-    header::FileHeader,
-    doc_info::DocInfo,
-    body_text::BodyText,
-};
+use crate::parser::{body_text::BodyText, doc_info::DocInfo, header::FileHeader};
 use std::path::Path;
 
 pub struct HwpWriter {
@@ -30,7 +25,7 @@ impl HwpWriter {
         let header = Self::create_default_header();
         let doc_info = Self::create_default_doc_info();
         let body_texts = vec![Self::create_default_body_text()];
-        
+
         Self {
             document: HwpDocument {
                 header,
@@ -81,8 +76,7 @@ impl HwpWriter {
     /// Save to file
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let bytes = self.to_bytes()?;
-        std::fs::write(path, bytes)
-            .map_err(|e| HwpError::Io(e))?;
+        std::fs::write(path, bytes).map_err(HwpError::Io)?;
         Ok(())
     }
 
@@ -95,24 +89,16 @@ impl HwpWriter {
     fn create_default_doc_info() -> DocInfo {
         DocInfo {
             properties: Some(DocumentProperties::default()),
-            face_names: vec![
-                FaceName::new_default("맑은 고딕".to_string()),
-            ],
+            face_names: vec![FaceName::new_default("맑은 고딕".to_string())],
             char_shapes: vec![
                 CharShape::new_default(), // Default 12pt font
             ],
             para_shapes: vec![
                 ParaShape::new_default(), // Default left-aligned paragraph
             ],
-            styles: vec![
-                Style::new_default(),
-            ],
-            border_fills: vec![
-                BorderFill::new_default(),
-            ],
-            tab_defs: vec![
-                TabDef::new_default(),
-            ],
+            styles: vec![Style::new_default()],
+            border_fills: vec![BorderFill::new_default()],
+            tab_defs: vec![TabDef::new_default()],
             numberings: Vec::new(),
             bullets: Vec::new(),
             bin_data: Vec::new(),

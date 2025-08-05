@@ -135,9 +135,9 @@ impl BorderFill {
     /// Create a new default BorderFill for writing
     pub fn new_default() -> Self {
         let default_border = BorderLine {
-            line_type: 0,     // No border
+            line_type: 0, // No border
             thickness: 0,
-            color: 0x000000,  // Black
+            color: 0x000000, // Black
         };
 
         Self {

@@ -11,9 +11,9 @@ use std::path::Path;
 
 pub use crate::error::{HwpError, Result};
 pub use crate::model::HwpDocument;
-pub use crate::writer::HwpWriter;
 use crate::parser::{body_text::BodyTextParser, doc_info::DocInfoParser, header::FileHeader};
 use crate::reader::CfbReader;
+pub use crate::writer::HwpWriter;
 
 pub struct HwpReader;
 
