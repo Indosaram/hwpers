@@ -123,4 +123,33 @@ impl FileHeader {
         bytes.extend_from_slice(&self.reserved);
         bytes
     }
+
+    /// Set compression flag
+    pub fn set_compressed(&mut self, compressed: bool) -> &mut Self {
+        if compressed {
+            self.flags |= 0x01;
+        } else {
+            self.flags &= !0x01;
+        }
+        self
+    }
+
+    /// Set encryption flag
+    pub fn set_encrypted(&mut self, encrypted: bool) -> &mut Self {
+        if encrypted {
+            self.flags |= 0x02;
+        } else {
+            self.flags &= !0x02;
+        }
+        self
+    }
+
+    /// Set document version
+    pub fn set_version(&mut self, major: u8, minor: u8, build: u8, revision: u8) -> &mut Self {
+        self.version = ((major as u32) << 24) 
+                     | ((minor as u32) << 16) 
+                     | ((build as u32) << 8) 
+                     | (revision as u32);
+        self
+    }
 }

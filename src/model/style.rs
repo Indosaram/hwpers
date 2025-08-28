@@ -38,10 +38,10 @@ impl Style {
             if reader.remaining() >= english_name_len * 2 {
                 reader.read_string(english_name_len * 2)?
             } else {
-                String::new()
+                "Normal".to_string()
             }
         } else {
-            String::new()
+            "Normal".to_string()
         };
 
         // Read remaining fields

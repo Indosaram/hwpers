@@ -9,6 +9,7 @@ A Rust library for parsing Korean Hangul Word Processor (HWP) files with full la
 
 ## Features
 
+### Parser (Reading HWP files)
 - **Complete HWP 5.0 Format Support**: Parse all document components including text, formatting, tables, and embedded objects
 - **Visual Layout Rendering**: Reconstruct documents with pixel-perfect accuracy when layout data is available
 - **Font and Style Preservation**: Extract and apply original fonts, sizes, colors, and text formatting
@@ -16,6 +17,13 @@ A Rust library for parsing Korean Hangul Word Processor (HWP) files with full la
 - **SVG Export**: Render documents to scalable vector graphics
 - **Zero-copy Parsing**: Efficient parsing with minimal memory allocation
 - **Safe Rust**: Memory-safe implementation with comprehensive error handling
+
+### Writer (Creating HWP files) - v0.2.0+
+- **Basic Document Creation**: Create simple HWP documents with text content
+- **Paragraph Formatting**: Text alignment, line spacing, paragraph spacing
+- **Page Layout**: Custom page sizes, margins, orientation
+- **Hyperlinks**: URL, email, file, and bookmark links (partial support)
+- **Header/Footer**: Basic header and footer support (limited functionality)
 
 ## Quick Start
 
@@ -157,6 +165,31 @@ hwp_info document.hwp
 ## Format Support
 
 This library supports HWP 5.0 format files. For older HWP formats, consider using format conversion tools first.
+
+## Writer Limitations (v0.2.0)
+
+The HWP writer functionality is currently in early development with several limitations:
+
+### ⚠️ Partially Implemented
+- **Hyperlinks**: Basic structure implemented, but position tracking within paragraphs needs refinement
+- **Header/Footer**: 40-byte structure implemented, but text content storage mechanism incomplete
+- **Page Layout**: Basic settings work, but multi-column layouts not supported
+- **Styles**: Currently uses hardcoded style IDs; proper style management system needed
+
+### ❌ Not Yet Implemented
+- **Images**: Control structure exists but BinData stream integration missing - images won't display
+- **Tables**: Table creation and formatting not implemented
+- **Lists/Numbering**: Bullet points and numbered lists not supported
+- **Text Boxes**: Text box controls not implemented
+- **Shapes/Drawing**: Shape and drawing objects not supported
+- **Advanced Formatting**: Character styles, fonts, colors need proper style manager
+- **Document Properties**: Metadata and document properties not fully implemented
+
+### 🔧 Known Issues
+- Generated files may not open correctly in some versions of Hanword
+- Style IDs are hardcoded and may conflict with document defaults
+- Position tracking for hyperlinks within paragraphs is imprecise
+- No compression support for writer (reader supports both compressed and uncompressed)
 
 ## Contributing
 

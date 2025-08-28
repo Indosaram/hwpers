@@ -25,6 +25,9 @@ pub enum HwpError {
 
     #[error("Not found: {0}")]
     NotFound(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }
 
 pub type Result<T> = std::result::Result<T, HwpError>;

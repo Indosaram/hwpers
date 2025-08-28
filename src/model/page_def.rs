@@ -1,5 +1,7 @@
 use crate::error::Result;
 use crate::parser::record::Record;
+use crate::model::header_footer::HeaderFooterCollection;
+use crate::model::page_layout::PageLayout;
 
 #[derive(Debug, Clone)]
 pub struct PageDef {
@@ -15,6 +17,10 @@ pub struct PageDef {
     pub properties: u32,
     pub footnote_shape_id: u16,
     pub page_border_fill_id: u16,
+    /// Header/Footer 컬렉션
+    pub header_footer: HeaderFooterCollection,
+    /// 고급 페이지 레이아웃 설정
+    pub layout: Option<PageLayout>,
 }
 
 impl PageDef {
@@ -88,6 +94,8 @@ impl PageDef {
             properties,
             footnote_shape_id: 0,
             page_border_fill_id: 0,
+            header_footer: HeaderFooterCollection::new(),
+            layout: None,
         })
     }
 
@@ -101,5 +109,103 @@ impl PageDef {
 
     pub fn effective_height(&self) -> u32 {
         self.height - self.top_margin - self.bottom_margin
+    }
+
+    /// Create a new default PageDef for writing (A4 size)
+    pub fn new_default() -> Self {
+        Self {
+            width: 59528,   // 210mm in HWP units (1 unit = 1/7200 inch)
+            height: 84188,  // 297mm
+            left_margin: 8504,   // 30mm
+            right_margin: 8504,  // 30mm
+            top_margin: 5669,    // 20mm
+            bottom_margin: 4252, // 15mm
+            header_margin: 4252, // 15mm
+            footer_margin: 4252, // 15mm
+            gutter_margin: 0,
+            properties: 0,
+            footnote_shape_id: 0,
+            page_border_fill_id: 0,
+            header_footer: HeaderFooterCollection::new(),
+            layout: None,
+        }
+    }
+
+    /// Create PageDef from PageLayout
+    pub fn from_layout(layout: PageLayout) -> Self {
+        Self {
+            width: layout.width,
+            height: layout.height,
+            left_margin: layout.margins.left,
+            right_margin: layout.margins.right,
+            top_margin: layout.margins.top,
+            bottom_margin: layout.margins.bottom,
+            header_margin: layout.margins.header,
+            footer_margin: layout.margins.footer,
+            gutter_margin: layout.margins.gutter,
+            properties: 0, // Will be set based on layout properties
+            footnote_shape_id: 0,
+            page_border_fill_id: 0,
+            header_footer: HeaderFooterCollection::new(),
+            layout: Some(layout),
+        }
+    }
+
+    /// Update margins from layout
+    pub fn update_from_layout(&mut self, layout: PageLayout) {
+        self.width = layout.width;
+        self.height = layout.height;
+        self.left_margin = layout.margins.left;
+        self.right_margin = layout.margins.right;
+        self.top_margin = layout.margins.top;
+        self.bottom_margin = layout.margins.bottom;
+        self.header_margin = layout.margins.header;
+        self.footer_margin = layout.margins.footer;
+        self.gutter_margin = layout.margins.gutter;
+        self.layout = Some(layout);
+    }
+
+    /// Get current layout or create default
+    pub fn get_layout(&self) -> PageLayout {
+        if let Some(layout) = &self.layout {
+            layout.clone()
+        } else {
+            // Create layout from current PageDef values
+            let mut layout = PageLayout::default();
+            layout.width = self.width;
+            layout.height = self.height;
+            layout.margins.left = self.left_margin;
+            layout.margins.right = self.right_margin;
+            layout.margins.top = self.top_margin;
+            layout.margins.bottom = self.bottom_margin;
+            layout.margins.header = self.header_margin;
+            layout.margins.footer = self.footer_margin;
+            layout.margins.gutter = self.gutter_margin;
+            layout
+        }
+    }
+
+    /// Serialize to bytes for HWP file
+    pub fn to_bytes(&self) -> Vec<u8> {
+        use byteorder::{LittleEndian, WriteBytesExt};
+        use std::io::Cursor;
+
+        let mut data = Vec::new();
+        let mut writer = Cursor::new(&mut data);
+
+        writer.write_u32::<LittleEndian>(self.width).unwrap();
+        writer.write_u32::<LittleEndian>(self.height).unwrap();
+        writer.write_u32::<LittleEndian>(self.left_margin).unwrap();
+        writer.write_u32::<LittleEndian>(self.right_margin).unwrap();
+        writer.write_u32::<LittleEndian>(self.top_margin).unwrap();
+        writer.write_u32::<LittleEndian>(self.bottom_margin).unwrap();
+        writer.write_u32::<LittleEndian>(self.header_margin).unwrap();
+        writer.write_u32::<LittleEndian>(self.footer_margin).unwrap();
+        writer.write_u32::<LittleEndian>(self.gutter_margin).unwrap();
+        writer.write_u32::<LittleEndian>(self.properties).unwrap();
+        writer.write_u16::<LittleEndian>(self.footnote_shape_id).unwrap();
+        writer.write_u16::<LittleEndian>(self.page_border_fill_id).unwrap();
+
+        data
     }
 }

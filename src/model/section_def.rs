@@ -61,4 +61,44 @@ impl SectionDef {
     pub fn is_hide_page_number(&self) -> bool {
         (self.properties & 0x04) != 0
     }
+
+    /// Create a new default SectionDef for writing
+    pub fn new_default() -> Self {
+        Self {
+            properties: 0,
+            column_gap: 567, // 2mm gap
+            vertical_line_align: 0,
+            horizontal_line_align: 0,
+            default_tab_stop: 5669, // 20mm tab stops
+            numbering_shape_id: 0,
+            page_starting_number: 1,
+            image_starting_number: 1,
+            table_starting_number: 1,
+            equation_starting_number: 1,
+            default_language: 0x0412, // Korean
+        }
+    }
+
+    /// Serialize to bytes for HWP file
+    pub fn to_bytes(&self) -> Vec<u8> {
+        use byteorder::{LittleEndian, WriteBytesExt};
+        use std::io::Cursor;
+
+        let mut data = Vec::new();
+        let mut writer = Cursor::new(&mut data);
+
+        writer.write_u32::<LittleEndian>(self.properties).unwrap();
+        writer.write_u16::<LittleEndian>(self.column_gap).unwrap();
+        writer.write_u16::<LittleEndian>(self.vertical_line_align).unwrap();
+        writer.write_u16::<LittleEndian>(self.horizontal_line_align).unwrap();
+        writer.write_u32::<LittleEndian>(self.default_tab_stop).unwrap();
+        writer.write_u16::<LittleEndian>(self.numbering_shape_id).unwrap();
+        writer.write_u16::<LittleEndian>(self.page_starting_number).unwrap();
+        writer.write_u16::<LittleEndian>(self.image_starting_number).unwrap();
+        writer.write_u16::<LittleEndian>(self.table_starting_number).unwrap();
+        writer.write_u16::<LittleEndian>(self.equation_starting_number).unwrap();
+        writer.write_u16::<LittleEndian>(self.default_language).unwrap();
+
+        data
+    }
 }

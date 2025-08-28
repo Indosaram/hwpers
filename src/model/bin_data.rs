@@ -36,7 +36,7 @@ impl BinData {
         let abs_name = if reader.remaining() >= abs_name_len * 2 {
             reader.read_string(abs_name_len * 2)?
         } else {
-            String::new()
+            "bindata.dat".to_string()
         };
 
         // Read relative file name
@@ -44,7 +44,7 @@ impl BinData {
         let rel_name = if reader.remaining() >= rel_name_len * 2 {
             reader.read_string(rel_name_len * 2)?
         } else {
-            String::new()
+            "bindata.dat".to_string()
         };
 
         if reader.remaining() < 2 {
@@ -60,7 +60,7 @@ impl BinData {
         let extension = if reader.remaining() >= extension_len * 2 {
             reader.read_string(extension_len * 2)?
         } else {
-            String::new()
+            "dat".to_string()
         };
 
         // Read remaining data as binary content

@@ -14,6 +14,7 @@ pub use crate::model::HwpDocument;
 use crate::parser::{body_text::BodyTextParser, doc_info::DocInfoParser, header::FileHeader};
 use crate::reader::CfbReader;
 pub use crate::writer::HwpWriter;
+pub use crate::writer::style;
 
 pub struct HwpReader;
 

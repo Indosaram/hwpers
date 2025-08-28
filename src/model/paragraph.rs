@@ -23,6 +23,12 @@ pub struct Paragraph {
     pub line_segments: Option<crate::model::ParaLineSeg>,
     pub list_header: Option<crate::model::ListHeader>,
     pub ctrl_header: Option<crate::model::CtrlHeader>,
+    // Store actual control data
+    pub table_data: Option<crate::model::control::Table>,
+    pub picture_data: Option<crate::model::control::Picture>,
+    pub text_box_data: Option<crate::model::text_box::TextBox>,
+    // Store hyperlinks for this paragraph
+    pub hyperlinks: Vec<crate::model::hyperlink::Hyperlink>,
 }
 
 impl Paragraph {
@@ -51,6 +57,7 @@ impl Paragraph {
             range_tag_count: reader.read_u16()?,
             line_align_count: reader.read_u16()?,
             instance_id: reader.read_u32()?,
+            hyperlinks: Vec::new(),
             ..Default::default()
         })
     }

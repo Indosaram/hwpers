@@ -157,6 +157,36 @@ impl BorderFill {
             },
         }
     }
+
+    /// Create a border fill with actual border lines
+    pub fn new_with_border() -> Self {
+        let border = BorderLine {
+            line_type: 1, // Solid line
+            thickness: 20, // 0.1mm thickness
+            color: 0x000000, // Black
+        };
+
+        Self {
+            properties: 0x0001, // Enable borders
+            left: border.clone(),
+            right: border.clone(),
+            top: border.clone(),
+            bottom: border.clone(),
+            diagonal: BorderLine {
+                line_type: 0, // No diagonal
+                thickness: 0,
+                color: 0x000000,
+            },
+            fill_info: FillInfo {
+                fill_type: 1,           // Solid fill
+                back_color: 0xFFFFFFF0, // Light cream background
+                pattern_color: 0,
+                pattern_type: 0,
+                image_info: None,
+                gradient_info: None,
+            },
+        }
+    }
 }
 
 impl BorderLine {

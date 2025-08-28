@@ -202,11 +202,11 @@ impl FaceName {
     pub fn new_default(font_name: String) -> Self {
         Self {
             properties: 0,
-            font_name,
+            font_name: font_name.clone(),
             substitute_font_type: 0,
-            substitute_font_name: String::new(),
+            substitute_font_name: font_name.clone(),
             panose: None,
-            default_font_name: String::new(),
+            default_font_name: font_name,
         }
     }
 }

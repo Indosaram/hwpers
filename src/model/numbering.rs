@@ -57,7 +57,7 @@ impl Numbering {
             let prefix_text = if reader.remaining() >= prefix_len * 2 {
                 reader.read_string(prefix_len * 2)?
             } else {
-                String::new()
+                "".to_string()
             };
 
             // Read suffix text
@@ -65,7 +65,7 @@ impl Numbering {
             let suffix_text = if reader.remaining() >= suffix_len * 2 {
                 reader.read_string(suffix_len * 2)?
             } else {
-                String::new()
+                ".".to_string()
             };
 
             if reader.remaining() >= 10 {
@@ -158,5 +158,121 @@ impl NumberingLevel {
 
     pub fn is_upper_alpha(&self) -> bool {
         self.number_type == 5
+    }
+}
+
+impl Bullet {
+    /// Create a new bullet definition
+    pub fn new_default() -> Self {
+        Self {
+            para_shape_id: 0,
+            bullet_char: "•".to_string(), // Default bullet character
+            char_shape_id: 0,
+            use_image: false,
+            image_bullet: None,
+        }
+    }
+
+    /// Serialize to bytes for HWP format
+    pub fn to_bytes(&self) -> Vec<u8> {
+        use byteorder::{LittleEndian, WriteBytesExt};
+        use std::io::Cursor;
+
+        let mut data = Vec::new();
+        let mut writer = Cursor::new(&mut data);
+
+        writer.write_u16::<LittleEndian>(self.para_shape_id).unwrap();
+        
+        // Write bullet character
+        let bullet_bytes = self.bullet_char.encode_utf16().collect::<Vec<u16>>();
+        writer.write_u16::<LittleEndian>(bullet_bytes.len() as u16).unwrap();
+        for ch in bullet_bytes {
+            writer.write_u16::<LittleEndian>(ch).unwrap();
+        }
+
+        writer.write_u16::<LittleEndian>(self.char_shape_id).unwrap();
+        writer.write_u8(if self.use_image { 1 } else { 0 }).unwrap();
+
+        // Write image bullet if present
+        if let Some(image_bullet) = &self.image_bullet {
+            writer.write_u16::<LittleEndian>(image_bullet.bin_data_id).unwrap();
+            writer.write_i32::<LittleEndian>(image_bullet.image_width.into()).unwrap();
+            writer.write_i32::<LittleEndian>(image_bullet.image_height.into()).unwrap();
+        }
+
+        data
+    }
+}
+
+impl Numbering {
+    /// Create a new numbering definition for lists
+    pub fn new_for_list(list_type: crate::writer::style::ListType) -> Self {
+        let level = NumberingLevel {
+            para_shape_id: 0,
+            number_format: 0,
+            number_type: match list_type {
+                crate::writer::style::ListType::Bullet => 0,     // Bullet
+                crate::writer::style::ListType::Numbered => 1,   // Decimal
+                crate::writer::style::ListType::Alphabetic => 4, // Lower alpha
+                crate::writer::style::ListType::Roman => 2,      // Lower roman
+                crate::writer::style::ListType::Korean => 6,     // Korean numbering
+                crate::writer::style::ListType::Custom(_) => 1,  // Default to decimal
+            },
+            prefix_text: "".to_string(),
+            suffix_text: match list_type {
+                crate::writer::style::ListType::Bullet => "".to_string(),
+                _ => ".".to_string(),
+            },
+            auto_indent: 1,
+            text_offset_type: 0,
+            width_adjust_type: 0,
+            text_offset: 567, // 2mm offset
+            number_width: 567, // 2mm width
+            char_shape_id: 0,
+        };
+
+        Self {
+            levels: vec![level],
+        }
+    }
+
+    /// Serialize to bytes for HWP format
+    pub fn to_bytes(&self) -> Vec<u8> {
+        use byteorder::{LittleEndian, WriteBytesExt};
+        use std::io::Cursor;
+
+        let mut data = Vec::new();
+        let mut writer = Cursor::new(&mut data);
+
+        // Write number of levels
+        writer.write_u16::<LittleEndian>(self.levels.len() as u16).unwrap();
+
+        for level in &self.levels {
+            writer.write_u16::<LittleEndian>(level.para_shape_id).unwrap();
+            writer.write_u8(level.number_type).unwrap();
+            
+            // Write prefix text
+            let prefix_bytes = level.prefix_text.encode_utf16().collect::<Vec<u16>>();
+            writer.write_u16::<LittleEndian>(prefix_bytes.len() as u16).unwrap();
+            for ch in prefix_bytes {
+                writer.write_u16::<LittleEndian>(ch).unwrap();
+            }
+
+            // Write suffix text
+            let suffix_bytes = level.suffix_text.encode_utf16().collect::<Vec<u16>>();
+            writer.write_u16::<LittleEndian>(suffix_bytes.len() as u16).unwrap();
+            for ch in suffix_bytes {
+                writer.write_u16::<LittleEndian>(ch).unwrap();
+            }
+
+            writer.write_u8(level.auto_indent).unwrap();
+            writer.write_u8(level.text_offset_type).unwrap();
+            writer.write_u8(level.width_adjust_type).unwrap();
+            writer.write_i16::<LittleEndian>(level.text_offset).unwrap();
+            writer.write_u16::<LittleEndian>(level.number_width).unwrap();
+            writer.write_u16::<LittleEndian>(level.char_shape_id).unwrap();
+        }
+
+        data
     }
 }

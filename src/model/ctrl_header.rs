@@ -59,6 +59,7 @@ impl CtrlHeader {
 pub enum ControlType {
     Table,
     Gso, // Drawing object
+    TextBox,
     Equation,
     SectionDefinition,
     ColumnDefinition,
@@ -82,6 +83,7 @@ impl ControlType {
         match ctrl_id {
             0x5442 => Self::Table,                 // 'TB'
             0x6F73 => Self::Gso,                   // 'so'
+            0x7874 => Self::TextBox,               // 'tx'
             0x7165 => Self::Equation,              // 'eq'
             0x636573 => Self::SectionDefinition,   // 'sec'
             0x6C6F63 => Self::ColumnDefinition,    // 'col'
@@ -103,6 +105,7 @@ impl ControlType {
         match self {
             Self::Table => "Table",
             Self::Gso => "DrawingObject",
+            Self::TextBox => "TextBox",
             Self::Equation => "Equation",
             Self::SectionDefinition => "SectionDefinition",
             Self::ColumnDefinition => "ColumnDefinition",
