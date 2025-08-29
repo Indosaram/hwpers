@@ -18,7 +18,7 @@ A Rust library for parsing Korean Hangul Word Processor (HWP) files with full la
 - **Zero-copy Parsing**: Efficient parsing with minimal memory allocation
 - **Safe Rust**: Memory-safe implementation with comprehensive error handling
 
-### Writer (Creating HWP files) - v0.2.0+
+### Writer (Creating HWP files) - v0.3.0+
 - **Basic Document Creation**: Create simple HWP documents with text content
 - **Paragraph Formatting**: Text alignment, line spacing, paragraph spacing
 - **Page Layout**: Custom page sizes, margins, orientation
@@ -31,7 +31,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-hwpers = "0.1"
+hwpers = "0.3"
 ```
 
 ### Basic Usage
@@ -87,6 +87,42 @@ if let Some(svg) = result.to_svg(0) {
 }
 
 println!("Rendered {} pages", result.pages.len());
+```
+
+### Creating Documents (v0.3.0+)
+
+```rust
+use hwpers::writer::HwpWriter;
+use hwpers::model::hyperlink::Hyperlink;
+
+// Create a new document
+let mut writer = HwpWriter::new();
+
+// Add formatted text
+writer.add_aligned_paragraph(
+    "제목",
+    hwpers::writer::style::ParagraphAlignment::Center
+)?;
+
+// Add hyperlinks
+let link = Hyperlink::new_url("Rust", "https://rust-lang.org");
+writer.add_paragraph_with_hyperlinks(
+    "Visit Rust website",
+    vec![link]
+)?;
+
+// Configure page layout
+writer.set_custom_page_size(210.0, 297.0, // A4 size
+    hwpers::model::page_layout::PageOrientation::Portrait)?;
+writer.set_page_margins_mm(20.0, 20.0, 20.0, 20.0)?;
+
+// Add header and footer
+writer.add_header("Document Header");
+writer.add_footer_with_page_number("Page ", 
+    hwpers::model::header_footer::PageNumberFormat::Numeric);
+
+// Save the document
+writer.save_to_file("output.hwp")?;
 ```
 
 ### Advanced Formatting Access
@@ -166,7 +202,7 @@ hwp_info document.hwp
 
 This library supports HWP 5.0 format files. For older HWP formats, consider using format conversion tools first.
 
-## Writer Limitations (v0.2.0)
+## Writer Limitations (v0.3.0)
 
 The HWP writer functionality is currently in early development with several limitations:
 
