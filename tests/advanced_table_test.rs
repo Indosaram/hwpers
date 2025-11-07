@@ -8,7 +8,7 @@ fn test_table_with_cell_merge() {
     let mut writer = HwpWriter::new();
 
     // Create a 3x3 table with cell merging
-    let mut table_builder = writer.add_table(3, 3).unwrap();
+    let mut table_builder = writer.add_table(3, 3);
 
     // Set content
     table_builder = table_builder
@@ -56,7 +56,7 @@ fn test_table_with_borders() {
     let mut writer = HwpWriter::new();
 
     // Create a 2x2 table with custom borders
-    let mut table_builder = writer.add_table(2, 2).unwrap();
+    let mut table_builder = writer.add_table(2, 2);
 
     // Set content
     table_builder = table_builder
@@ -106,7 +106,7 @@ fn test_complex_table_with_merge_and_borders() {
     let mut writer = HwpWriter::new();
 
     // Create a 4x4 table with complex merging and borders
-    let mut table_builder = writer.add_table(4, 4).unwrap();
+    let mut table_builder = writer.add_table(4, 4);
 
     // Set content
     table_builder = table_builder

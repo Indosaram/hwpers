@@ -43,7 +43,6 @@ fn test_table_builder() {
 
     writer
         .add_table(2, 2)
-        .unwrap()
         .set_cell(0, 0, "A1")
         .set_cell(0, 1, "B1")
         .set_cell(1, 0, "A2")
@@ -77,7 +76,6 @@ fn test_table_with_header() {
 
     writer
         .add_table(3, 2)
-        .unwrap()
         .set_header_row(true)
         .set_cell(0, 0, "Header 1")
         .set_cell(0, 1, "Header 2")

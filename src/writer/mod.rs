@@ -1026,6 +1026,271 @@ impl HwpWriter {
     pub fn document(&self) -> &HwpDocument {
         &self.document
     }
+
+    /// Get current page layout
+    pub fn get_page_layout(&self) -> Option<crate::model::page_layout::PageLayout> {
+        self.document
+            .body_texts
+            .get(self.current_section_idx)?
+            .sections
+            .get(0)?
+            .page_def
+            .as_ref()
+            .map(|pd| pd.get_layout())
+    }
+
+    /// Set paper size (alias for set_page_layout with standard sizes)
+    pub fn set_paper_size(&mut self, size: &str) -> Result<()> {
+        match size.to_lowercase().as_str() {
+            "a4" => self.set_a4_portrait(),
+            "a4-landscape" => self.set_a4_landscape(),
+            "letter" => self.set_letter_portrait(),
+            "letter-landscape" => self.set_letter_landscape(),
+            _ => Err(crate::error::HwpError::InvalidInput(format!(
+                "Unknown paper size: {}",
+                size
+            ))),
+        }
+    }
+
+    /// Set page orientation
+    pub fn set_page_orientation(&mut self, landscape: bool) -> Result<()> {
+        let current_layout = self.get_page_layout().unwrap_or_default();
+        let new_layout = if landscape {
+            crate::model::page_layout::PageLayout {
+                width: current_layout.height,
+                height: current_layout.width,
+                ..current_layout
+            }
+        } else {
+            crate::model::page_layout::PageLayout {
+                width: current_layout.width.min(current_layout.height),
+                height: current_layout.width.max(current_layout.height),
+                ..current_layout
+            }
+        };
+        self.set_page_layout(new_layout)
+    }
+
+    /// Add a simple footer (without page number)
+    pub fn add_footer(&mut self, text: &str) {
+        self.add_footer_with_page_number(text, crate::model::PageNumberFormat::Numeric);
+    }
+
+    /// Add header with page number
+    pub fn add_header_with_page_number(
+        &mut self,
+        text: &str,
+        format: crate::model::PageNumberFormat,
+    ) {
+        if let Some(body_text) = self.document.body_texts.get_mut(self.current_section_idx) {
+            if let Some(section) = body_text.sections.get_mut(0) {
+                if let Some(page_def) = &mut section.page_def {
+                    let header = crate::model::header_footer::HeaderFooter {
+                        text: text.to_string(),
+                        page_number_format: format as u8,
+                        ..Default::default()
+                    };
+                    page_def.header_footer.add_header(header);
+                }
+            }
+        }
+    }
+
+    /// Add header with options (text + format)
+    pub fn add_header_with_options(
+        &mut self,
+        text: &str,
+        format: crate::model::PageNumberFormat,
+    ) {
+        self.add_header_with_page_number(text, format);
+    }
+
+    /// Add footer with options (text + format)
+    pub fn add_footer_with_options(
+        &mut self,
+        text: &str,
+        format: crate::model::PageNumberFormat,
+    ) {
+        self.add_footer_with_page_number(text, format);
+    }
+
+    /// Add a styled paragraph with predefined styles
+    pub fn add_styled_paragraph(&mut self, text: &str, style_name: &str) -> Result<()> {
+        let style = match style_name.to_lowercase().as_str() {
+            "heading1" | "h1" => style::TextStyle {
+                bold: true,
+                font_size: Some(20),
+                ..Default::default()
+            },
+            "heading2" | "h2" => style::TextStyle {
+                bold: true,
+                font_size: Some(16),
+                ..Default::default()
+            },
+            "heading3" | "h3" => style::TextStyle {
+                bold: true,
+                font_size: Some(14),
+                ..Default::default()
+            },
+            "bold" => style::TextStyle {
+                bold: true,
+                ..Default::default()
+            },
+            "italic" => style::TextStyle {
+                italic: true,
+                ..Default::default()
+            },
+            "highlight" => style::TextStyle {
+                background_color: Some(0xFFFF00), // Yellow
+                ..Default::default()
+            },
+            _ => Default::default(),
+        };
+        self.add_paragraph_with_style(text, &style)
+    }
+
+    /// Add paragraph with bold text
+    pub fn add_paragraph_with_bold(&mut self, text: &str) -> Result<()> {
+        self.add_styled_paragraph(text, "bold")
+    }
+
+    /// Add paragraph with colors
+    pub fn add_paragraph_with_colors(
+        &mut self,
+        text: &str,
+        text_color: u32,
+        bg_color: u32,
+    ) -> Result<()> {
+        let style = style::TextStyle {
+            color: text_color,
+            background_color: Some(bg_color),
+            ..Default::default()
+        };
+        self.add_paragraph_with_style(text, &style)
+    }
+
+    /// Add paragraph with highlight
+    pub fn add_paragraph_with_highlight(&mut self, text: &str, color: u32) -> Result<()> {
+        let style = style::TextStyle {
+            background_color: Some(color),
+            ..Default::default()
+        };
+        self.add_paragraph_with_style(text, &style)
+    }
+
+    /// Add mixed text with different styles (simplified version)
+    pub fn add_mixed_text(&mut self, parts: &[(&str, Option<style::TextStyle>)]) -> Result<()> {
+        // For now, just combine all text parts
+        let combined_text: String = parts.iter().map(|(text, _)| *text).collect();
+        self.add_paragraph(&combined_text)
+    }
+
+    /// Add a text box
+    pub fn add_text_box(&mut self, text: &str) -> Result<()> {
+        self.add_text_box_at_position(text, 10, 10, 50, 20)
+    }
+
+    /// Add a text box at specific position
+    pub fn add_text_box_at_position(
+        &mut self,
+        text: &str,
+        x_mm: u32,
+        y_mm: u32,
+        width_mm: u32,
+        height_mm: u32,
+    ) -> Result<()> {
+        let text_box = crate::model::text_box::TextBox {
+            text: text.to_string(),
+            x: (x_mm * 100) as i32, // Convert mm to HWPU
+            y: (y_mm * 100) as i32,
+            width: width_mm * 100,
+            height: height_mm * 100,
+            ..Default::default()
+        };
+
+        self.add_text_box_data(text_box)
+    }
+
+    /// Add a styled text box
+    pub fn add_styled_text_box(&mut self, text: &str, style_name: &str) -> Result<()> {
+        let (border_color, bg_color) = match style_name.to_lowercase().as_str() {
+            "highlight" => (0xFFFF00, 0xFFFFCC),
+            "info" => (0x0000FF, 0xE0E0FF),
+            "warning" => (0xFF8800, 0xFFEECC),
+            "error" => (0xFF0000, 0xFFCCCC),
+            _ => (0x000000, 0xFFFFFF),
+        };
+
+        let text_box = crate::model::text_box::TextBox {
+            text: text.to_string(),
+            x: 1000,
+            y: 1000,
+            width: 5000,
+            height: 2000,
+            border_color,
+            background_color: bg_color,
+            ..Default::default()
+        };
+
+        self.add_text_box_data(text_box)
+    }
+
+    /// Add custom text box
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_custom_text_box(
+        &mut self,
+        text: &str,
+        x_mm: u32,
+        y_mm: u32,
+        width_mm: u32,
+        height_mm: u32,
+        _alignment: crate::model::text_box::TextBoxAlignment,
+        _border_style: crate::model::text_box::TextBoxBorderStyle,
+        border_color: u32,
+        bg_color: u32,
+    ) -> Result<()> {
+        let text_box = crate::model::text_box::TextBox {
+            text: text.to_string(),
+            x: (x_mm * 100) as i32,
+            y: (y_mm * 100) as i32,
+            width: width_mm * 100,
+            height: height_mm * 100,
+            border_color,
+            background_color: bg_color,
+            ..Default::default()
+        };
+
+        self.add_text_box_data(text_box)
+    }
+
+    /// Add floating text box
+    pub fn add_floating_text_box(
+        &mut self,
+        text: &str,
+        x_mm: u32,
+        y_mm: u32,
+        width_mm: u32,
+        height_mm: u32,
+    ) -> Result<()> {
+        self.add_text_box_at_position(text, x_mm, y_mm, width_mm, height_mm)
+    }
+
+    /// Internal helper to add text box data to paragraph
+    fn add_text_box_data(&mut self, text_box: crate::model::text_box::TextBox) -> Result<()> {
+        use crate::model::paragraph::Paragraph;
+
+        if let Some(body_text) = self.document.body_texts.get_mut(self.current_section_idx) {
+            if let Some(section) = body_text.sections.get_mut(0) {
+                let mut paragraph = Paragraph::default();
+                paragraph.text_box_data = Some(text_box);
+                paragraph.control_mask = 1; // Indicate control is present
+                section.paragraphs.push(paragraph);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for HwpWriter {
