@@ -134,7 +134,7 @@ fn test_custom_text_box() {
             CustomTextBoxStyle {
                 alignment: TextBoxAlignment::Center,
                 border_style: TextBoxBorderStyle::Dashed,
-                border_color: 0x0000FF, // blue border
+                border_color: 0x0000FF,     // blue border
                 background_color: 0xF0F0F0, // light gray background
             },
         )
@@ -259,7 +259,7 @@ fn test_multiple_text_boxes() {
             CustomTextBoxStyle {
                 alignment: TextBoxAlignment::Right,
                 border_style: TextBoxBorderStyle::Double,
-                border_color: 0x800080, // purple
+                border_color: 0x800080,     // purple
                 background_color: 0xFFE0FF, // light purple
             },
         )

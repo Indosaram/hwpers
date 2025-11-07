@@ -310,7 +310,6 @@ pub enum BorderLineType {
     Thick = 5,
 }
 
-
 impl Default for BorderLineStyle {
     fn default() -> Self {
         Self {

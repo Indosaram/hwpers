@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         CustomTextBoxStyle {
             alignment: TextBoxAlignment::Center,
             border_style: TextBoxBorderStyle::Dashed,
-            border_color: 0x0000FF, // blue border
+            border_color: 0x0000FF,     // blue border
             background_color: 0xE6F3FF, // light blue background
         },
     )?;
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         CustomTextBoxStyle {
             alignment: TextBoxAlignment::Left,
             border_style: TextBoxBorderStyle::Solid,
-            border_color: 0x00AA00, // green border
+            border_color: 0x00AA00,     // green border
             background_color: 0xE6FFE6, // light green background
         },
     )?;
