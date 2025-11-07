@@ -7,10 +7,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = HwpWriter::new();
 
     // Set document metadata
-    writer
-        .set_document_title("Text Box Demo Document")
-        .set_document_author("HWP Writer")
-        .set_document_subject("Demonstrating Text Box Features");
+    writer.set_document_title("Text Box Demo Document")?;
 
     // Add header
     writer.add_header("Text Box Features Demo");

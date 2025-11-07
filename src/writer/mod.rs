@@ -15,6 +15,8 @@ use crate::model::{
 use crate::parser::{body_text::BodyText, doc_info::DocInfo, header::FileHeader};
 use std::path::Path;
 
+pub use style::DocumentStatistics;
+
 pub struct HwpWriter {
     document: HwpDocument,
     current_section_idx: usize,
@@ -837,6 +839,15 @@ impl HwpWriter {
         self.set_page_layout(layout)
     }
 
+    /// Set custom page size in millimeters (simple version, defaults to portrait)
+    pub fn set_custom_page_size_mm(&mut self, width_mm: f32, height_mm: f32) -> Result<()> {
+        self.set_custom_page_size(
+            width_mm,
+            height_mm,
+            crate::model::page_layout::PageOrientation::Portrait,
+        )
+    }
+
     /// Set custom page size in millimeters
     pub fn set_custom_page_size(
         &mut self,
@@ -863,6 +874,18 @@ impl HwpWriter {
             ..Default::default()
         };
         self.set_page_layout(layout)
+    }
+
+    /// Set page margins in inches
+    pub fn set_page_margins_inches(
+        &mut self,
+        left: f32,
+        right: f32,
+        top: f32,
+        bottom: f32,
+    ) -> Result<()> {
+        // Convert inches to mm (1 inch = 25.4mm)
+        self.set_page_margins_mm(left * 25.4, right * 25.4, top * 25.4, bottom * 25.4)
     }
 
     /// Set narrow margins (Office style)
@@ -1025,6 +1048,23 @@ impl HwpWriter {
     /// Get a reference to the underlying document
     pub fn document(&self) -> &HwpDocument {
         &self.document
+    }
+
+    /// Set document title
+    pub fn set_document_title(&mut self, _title: &str) -> Result<()> {
+        // TODO: Implement document properties
+        Ok(())
+    }
+
+    /// Get document statistics (word count, character count, etc.)
+    pub fn get_document_statistics(&self) -> DocumentStatistics {
+        DocumentStatistics::default()
+    }
+
+    /// Update document statistics
+    pub fn update_document_statistics(&mut self) -> Result<()> {
+        // TODO: Calculate and update statistics
+        Ok(())
     }
 
     /// Get current page layout

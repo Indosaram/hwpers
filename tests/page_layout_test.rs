@@ -140,7 +140,7 @@ fn test_columns() {
     // Set 3 columns with 5mm spacing
     writer.set_columns(3, 5.0);
 
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.columns, 3);
     assert_eq!(layout.column_spacing, mm_to_hwp_units(5.0));
 

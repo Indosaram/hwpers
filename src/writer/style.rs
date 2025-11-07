@@ -1,5 +1,15 @@
 use crate::model::char_shape::CharShape;
 
+/// Document statistics
+#[derive(Debug, Clone, Default)]
+pub struct DocumentStatistics {
+    pub page_count: u32,
+    pub paragraph_count: u32,
+    pub word_count: u32,
+    pub character_count: u32,
+    pub character_count_no_spaces: u32,
+}
+
 /// Text style configuration for paragraphs
 #[derive(Debug, Clone)]
 pub struct TextStyle {
