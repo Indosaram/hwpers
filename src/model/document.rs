@@ -302,7 +302,7 @@ impl DocumentProperties {
 
         // Update word count (approximate)
         self.total_word_count = text.split_whitespace().count() as u32;
-        
+
         // Update line count
         self.line_count = text.lines().count() as u32;
     }
@@ -311,7 +311,7 @@ impl DocumentProperties {
     pub fn add_character_counts(&mut self, text: &str) {
         let mut temp_props = DocumentProperties::default();
         temp_props.calculate_character_counts(text);
-        
+
         self.total_character_count += temp_props.total_character_count;
         self.hangul_character_count += temp_props.hangul_character_count;
         self.english_character_count += temp_props.english_character_count;
@@ -333,38 +333,82 @@ impl DocumentProperties {
         let mut writer = Cursor::new(&mut data);
 
         // Write basic properties
-        writer.write_u16::<LittleEndian>(self.section_count).unwrap();
-        writer.write_u16::<LittleEndian>(self.page_start_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.footnote_start_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.endnote_start_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.picture_start_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.table_start_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.equation_start_number).unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.section_count)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.page_start_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.footnote_start_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.endnote_start_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.picture_start_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.table_start_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.equation_start_number)
+            .unwrap();
 
         // Write character counts
-        writer.write_u32::<LittleEndian>(self.total_character_count).unwrap();
-        writer.write_u32::<LittleEndian>(self.hangul_character_count).unwrap();
-        writer.write_u32::<LittleEndian>(self.english_character_count).unwrap();
-        writer.write_u32::<LittleEndian>(self.hanja_character_count).unwrap();
-        writer.write_u32::<LittleEndian>(self.japanese_character_count).unwrap();
-        writer.write_u32::<LittleEndian>(self.other_character_count).unwrap();
-        writer.write_u32::<LittleEndian>(self.symbol_character_count).unwrap();
-        writer.write_u32::<LittleEndian>(self.space_character_count).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.total_character_count)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.hangul_character_count)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.english_character_count)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.hanja_character_count)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.japanese_character_count)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.other_character_count)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.symbol_character_count)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.space_character_count)
+            .unwrap();
 
         // Write document metrics
-        writer.write_u32::<LittleEndian>(self.total_page_count).unwrap();
-        writer.write_u32::<LittleEndian>(self.total_word_count).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.total_page_count)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.total_word_count)
+            .unwrap();
         writer.write_u32::<LittleEndian>(self.line_count).unwrap();
 
         // Write revision info
-        writer.write_u32::<LittleEndian>(self.revision_number).unwrap();
-        writer.write_u32::<LittleEndian>(self.edit_time_minutes).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.revision_number)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.edit_time_minutes)
+            .unwrap();
 
         // Write flags
         let mut flags = 0u32;
-        if self.password_protected { flags |= 0x01; }
-        if self.read_only { flags |= 0x02; }
-        if self.compressed { flags |= 0x04; }
+        if self.password_protected {
+            flags |= 0x01;
+        }
+        if self.read_only {
+            flags |= 0x02;
+        }
+        if self.compressed {
+            flags |= 0x04;
+        }
         writer.write_u32::<LittleEndian>(flags).unwrap();
 
         data

@@ -1,7 +1,7 @@
 use crate::error::Result;
-use crate::parser::record::Record;
 use crate::model::header_footer::HeaderFooterCollection;
 use crate::model::page_layout::PageLayout;
+use crate::parser::record::Record;
 
 #[derive(Debug, Clone)]
 pub struct PageDef {
@@ -114,8 +114,8 @@ impl PageDef {
     /// Create a new default PageDef for writing (A4 size)
     pub fn new_default() -> Self {
         Self {
-            width: 59528,   // 210mm in HWP units (1 unit = 1/7200 inch)
-            height: 84188,  // 297mm
+            width: 59528,        // 210mm in HWP units (1 unit = 1/7200 inch)
+            height: 84188,       // 297mm
             left_margin: 8504,   // 30mm
             right_margin: 8504,  // 30mm
             top_margin: 5669,    // 20mm
@@ -198,13 +198,25 @@ impl PageDef {
         writer.write_u32::<LittleEndian>(self.left_margin).unwrap();
         writer.write_u32::<LittleEndian>(self.right_margin).unwrap();
         writer.write_u32::<LittleEndian>(self.top_margin).unwrap();
-        writer.write_u32::<LittleEndian>(self.bottom_margin).unwrap();
-        writer.write_u32::<LittleEndian>(self.header_margin).unwrap();
-        writer.write_u32::<LittleEndian>(self.footer_margin).unwrap();
-        writer.write_u32::<LittleEndian>(self.gutter_margin).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.bottom_margin)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.header_margin)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.footer_margin)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.gutter_margin)
+            .unwrap();
         writer.write_u32::<LittleEndian>(self.properties).unwrap();
-        writer.write_u16::<LittleEndian>(self.footnote_shape_id).unwrap();
-        writer.write_u16::<LittleEndian>(self.page_border_fill_id).unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.footnote_shape_id)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.page_border_fill_id)
+            .unwrap();
 
         data
     }

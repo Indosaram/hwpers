@@ -64,7 +64,7 @@ impl Default for Hyperlink {
             target_url: String::new(),
             tooltip: None,
             display_mode: HyperlinkDisplay::TextOnly,
-            text_color: 0x0000FF, // Blue
+            text_color: 0x0000FF,    // Blue
             visited_color: 0x800080, // Purple
             underline: true,
             visited: false,
@@ -94,7 +94,7 @@ impl Hyperlink {
         } else {
             format!("mailto:{}", email)
         };
-        
+
         Self {
             hyperlink_type: HyperlinkType::Email,
             display_text: display_text.to_string(),
@@ -176,8 +176,8 @@ impl Hyperlink {
 
     /// HWP 형식으로 직렬화
     pub fn to_bytes(&self) -> Vec<u8> {
-        use byteorder::{LittleEndian, WriteBytesExt};
         use crate::utils::encoding::string_to_utf16le;
+        use byteorder::{LittleEndian, WriteBytesExt};
         use std::io::{Cursor, Write};
 
         let mut data = Vec::new();
@@ -187,33 +187,49 @@ impl Hyperlink {
         writer.write_u8(self.hyperlink_type as u8).unwrap();
         writer.write_u8(self.display_mode as u8).unwrap();
         writer.write_u32::<LittleEndian>(self.text_color).unwrap();
-        writer.write_u32::<LittleEndian>(self.visited_color).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.visited_color)
+            .unwrap();
 
         // 플래그 비트 (underline, visited, new_window)
         let mut flags = 0u8;
-        if self.underline { flags |= 0x01; }
-        if self.visited { flags |= 0x02; }
-        if self.open_in_new_window { flags |= 0x04; }
+        if self.underline {
+            flags |= 0x01;
+        }
+        if self.visited {
+            flags |= 0x02;
+        }
+        if self.open_in_new_window {
+            flags |= 0x04;
+        }
         writer.write_u8(flags).unwrap();
 
         // 위치 정보
-        writer.write_u32::<LittleEndian>(self.start_position).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.start_position)
+            .unwrap();
         writer.write_u32::<LittleEndian>(self.length).unwrap();
 
         // 표시 텍스트
         let display_text_utf16 = string_to_utf16le(&self.display_text);
-        writer.write_u16::<LittleEndian>(display_text_utf16.len() as u16 / 2).unwrap();
+        writer
+            .write_u16::<LittleEndian>(display_text_utf16.len() as u16 / 2)
+            .unwrap();
         writer.write_all(&display_text_utf16).unwrap();
 
         // 대상 URL
         let target_url_utf16 = string_to_utf16le(&self.target_url);
-        writer.write_u16::<LittleEndian>(target_url_utf16.len() as u16 / 2).unwrap();
+        writer
+            .write_u16::<LittleEndian>(target_url_utf16.len() as u16 / 2)
+            .unwrap();
         writer.write_all(&target_url_utf16).unwrap();
 
         // 툴팁 (선택사항)
         if let Some(tooltip) = &self.tooltip {
             let tooltip_utf16 = string_to_utf16le(tooltip);
-            writer.write_u16::<LittleEndian>(tooltip_utf16.len() as u16 / 2).unwrap();
+            writer
+                .write_u16::<LittleEndian>(tooltip_utf16.len() as u16 / 2)
+                .unwrap();
             writer.write_all(&tooltip_utf16).unwrap();
         } else {
             writer.write_u16::<LittleEndian>(0).unwrap();
@@ -222,107 +238,131 @@ impl Hyperlink {
         data
     }
 
-    /// HWP 레코드에서 파싱
+    /// HWP 레코드에서 파싱 (to_bytes()로 생성된 데이터 파싱)
     pub fn from_record(record: &Record) -> Result<Self> {
         let data = &record.data;
-        
-        if data.len() < 70 {
-            return Err(HwpError::InvalidFormat("Record too small for hyperlink".to_string()));
+
+        // Check minimum size for our serialization format
+        if data.len() < 19 {
+            return Err(HwpError::InvalidFormat(
+                "Record too small for hyperlink".to_string(),
+            ));
         }
-        
-        // Based on reverse engineering analysis:
-        // 0x00-0x03: Control ID ('gsh ')  
-        // 0x04-0x1B: Control header (24 bytes)
-        // 0x1C-0x2F: Hyperlink properties (20 bytes)
-        // 0x30+: Length-prefixed strings
-        
-        // Skip control ID + control header
-        
-        // Skip hyperlink properties for now and look for strings
-        // From analysis, strings start around offset 0x32-0x38
-        let mut offset = 48; // Jump to where strings typically start
-        
-        if offset + 2 >= data.len() {
-            return Err(HwpError::InvalidFormat("Not enough data for hyperlink strings".to_string()));
+
+        let mut offset = 0;
+
+        // Read hyperlink type (1 byte)
+        let hyperlink_type = match data[offset] {
+            0 => HyperlinkType::Url,
+            1 => HyperlinkType::Email,
+            2 => HyperlinkType::File,
+            3 => HyperlinkType::Bookmark,
+            4 => HyperlinkType::ExternalBookmark,
+            _ => HyperlinkType::Url,
+        };
+        offset += 1;
+
+        // Read display mode (1 byte)
+        let display_mode = match data[offset] {
+            0 => HyperlinkDisplay::TextOnly,
+            1 => HyperlinkDisplay::UrlOnly,
+            2 => HyperlinkDisplay::Both,
+            _ => HyperlinkDisplay::TextOnly,
+        };
+        offset += 1;
+
+        // Read text color (4 bytes)
+        let text_color = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        offset += 4;
+
+        // Read visited color (4 bytes)
+        let visited_color = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        offset += 4;
+
+        // Read flags (1 byte)
+        let flags = data[offset];
+        let underline = (flags & 0x01) != 0;
+        let visited = (flags & 0x02) != 0;
+        let open_in_new_window = (flags & 0x04) != 0;
+        offset += 1;
+
+        // Read start position (4 bytes)
+        let start_position = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        offset += 4;
+
+        // Read length (4 bytes)
+        let length = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        offset += 4;
+
+        // Read display text length (2 bytes) - number of UTF-16 characters
+        if offset + 2 > data.len() {
+            return Err(HwpError::InvalidFormat(
+                "Not enough data for display text length".to_string(),
+            ));
         }
-        
-        // Read display text length
         let display_text_len = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
         offset += 2;
-        
+
         // Read display text (UTF-16)
         let mut display_text = String::new();
-        if display_text_len > 0 && offset + display_text_len * 2 <= data.len() {
+        if display_text_len > 0 {
+            if offset + display_text_len * 2 > data.len() {
+                return Err(HwpError::InvalidFormat(
+                    "Not enough data for display text".to_string(),
+                ));
+            }
             let mut utf16_chars = Vec::new();
             for i in 0..display_text_len {
                 let char_offset = offset + i * 2;
-                if char_offset + 1 < data.len() {
-                    let char_val = u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
-                    if char_val == 0 {
-                        break;
-                    }
-                    utf16_chars.push(char_val);
-                }
+                let char_val = u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
+                utf16_chars.push(char_val);
             }
-            display_text = String::from_utf16(&utf16_chars)
-                .unwrap_or_default();
+            display_text = String::from_utf16(&utf16_chars).map_err(|_| {
+                HwpError::InvalidFormat("Invalid UTF-16 in display text".to_string())
+            })?;
             offset += display_text_len * 2;
         }
-        
-        // Read target URL length  
-        if offset + 2 >= data.len() {
-            return Err(HwpError::InvalidFormat("Not enough data for URL length".to_string()));
+
+        // Read target URL length (2 bytes)
+        if offset + 2 > data.len() {
+            return Err(HwpError::InvalidFormat(
+                "Not enough data for URL length".to_string(),
+            ));
         }
-        
         let target_url_len = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
         offset += 2;
-        
+
         // Read target URL (UTF-16)
         let mut target_url = String::new();
-        if target_url_len > 0 && offset + target_url_len * 2 <= data.len() {
+        if target_url_len > 0 {
+            if offset + target_url_len * 2 > data.len() {
+                return Err(HwpError::InvalidFormat(
+                    "Not enough data for target URL".to_string(),
+                ));
+            }
             let mut utf16_chars = Vec::new();
             for i in 0..target_url_len {
                 let char_offset = offset + i * 2;
-                if char_offset + 1 < data.len() {
-                    let char_val = u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
-                    if char_val == 0 {
-                        break;
-                    }
-                    utf16_chars.push(char_val);
-                }
+                let char_val = u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
+                utf16_chars.push(char_val);
             }
-            target_url = String::from_utf16(&utf16_chars)
-                .unwrap_or_default();
+            target_url = String::from_utf16(&utf16_chars).map_err(|_| {
+                HwpError::InvalidFormat("Invalid UTF-16 in target URL".to_string())
+            })?;
             offset += target_url_len * 2;
         }
 
-        // Determine hyperlink type from URL
-        let hyperlink_type = if target_url.starts_with("mailto:") {
-            HyperlinkType::Email
-        } else if target_url.starts_with("http://") || target_url.starts_with("https://") {
-            HyperlinkType::Url
-        } else if target_url.starts_with("#") {
-            HyperlinkType::Bookmark
-        } else if target_url.contains("\\") || target_url.starts_with("./") || target_url.starts_with("C:") {
-            HyperlinkType::File
-        } else {
-            HyperlinkType::Url
-        };
-
-        // Try to read tooltip if there's remaining data
-        let tooltip = if offset + 2 < data.len() {
+        // Read tooltip length (2 bytes)
+        let tooltip = if offset + 2 <= data.len() {
             let tooltip_len = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
-            if tooltip_len > 0 && offset + 2 + tooltip_len * 2 <= data.len() {
+            offset += 2;
+
+            if tooltip_len > 0 && offset + tooltip_len * 2 <= data.len() {
                 let mut utf16_chars = Vec::new();
                 for i in 0..tooltip_len {
-                    let char_offset = offset + 2 + i * 2;
-                    if char_offset + 1 < data.len() {
-                        let char_val = u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
-                        if char_val == 0 {
-                            break;
-                        }
-                        utf16_chars.push(char_val);
-                    }
+                    let char_offset = offset + i * 2;
+                    let char_val = u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
+                    utf16_chars.push(char_val);
                 }
                 String::from_utf16(&utf16_chars).ok()
             } else {
@@ -332,21 +372,19 @@ impl Hyperlink {
             None
         };
 
-        let text_length = display_text.chars().count() as u32;
-        
         Ok(Self {
             hyperlink_type,
             display_text,
             target_url,
             tooltip,
-            display_mode: HyperlinkDisplay::TextOnly,
-            text_color: 0x0000FF, // Default blue
-            visited_color: 0x800080, // Default purple
-            underline: true,
-            visited: false,
-            open_in_new_window: false,
-            start_position: 0,
-            length: text_length,
+            display_mode,
+            text_color,
+            visited_color,
+            underline,
+            visited,
+            open_in_new_window,
+            start_position,
+            length,
         })
     }
 }

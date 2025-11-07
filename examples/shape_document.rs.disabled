@@ -1,7 +1,4 @@
-use hwpers::{
-    HwpWriter, 
-    model::shape::*
-};
+use hwpers::{model::shape::*, HwpWriter};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = HwpWriter::new();
@@ -27,21 +24,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Add basic shapes in a row
     writer.add_rectangle(20.0, 40.0, 30.0, 20.0)?; // Rectangle
-    writer.add_circle(70.0, 50.0, 12.0)?;          // Circle
-    writer.add_ellipse(100.0, 40.0, 25.0, 20.0)?;  // Ellipse
+    writer.add_circle(70.0, 50.0, 12.0)?; // Circle
+    writer.add_ellipse(100.0, 40.0, 25.0, 20.0)?; // Ellipse
 
-    writer.add_paragraph("From left to right: Rectangle (30×20mm), Circle (12mm radius), Ellipse (25×20mm)")?;
+    writer.add_paragraph(
+        "From left to right: Rectangle (30×20mm), Circle (12mm radius), Ellipse (25×20mm)",
+    )?;
 
     // Example 2: Lines and Arrows
     writer.add_heading("2. Lines and Arrows", 2)?;
     writer.add_paragraph("Various line styles and arrow types:")?;
 
     // Add different line types
-    writer.add_line(20.0, 80.0, 60.0, 80.0)?;         // Solid line
-    writer.add_dashed_line(20.0, 90.0, 60.0, 90.0)?;  // Dashed line
-    writer.add_arrow(70.0, 80.0, 110.0, 90.0)?;       // Arrow
+    writer.add_line(20.0, 80.0, 60.0, 80.0)?; // Solid line
+    writer.add_dashed_line(20.0, 90.0, 60.0, 90.0)?; // Dashed line
+    writer.add_arrow(70.0, 80.0, 110.0, 90.0)?; // Arrow
 
-    writer.add_paragraph("Solid line, dashed line, and arrow demonstrating different stroke styles.")?;
+    writer.add_paragraph(
+        "Solid line, dashed line, and arrow demonstrating different stroke styles.",
+    )?;
 
     // Example 3: Custom Styled Shapes
     writer.add_heading("3. Custom Styling", 2)?;
@@ -50,15 +51,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create custom styled shapes
     let red_fill = ShapeFill::solid(0xFF4444);
     let thick_stroke = ShapeStroke::new(LineStyle::Solid, 0x000000, 2.0);
-    writer.add_custom_shape(ShapeType::Rectangle, 20.0, 120.0, 25.0, 15.0, red_fill, thick_stroke)?;
+    writer.add_custom_shape(
+        ShapeType::Rectangle,
+        20.0,
+        120.0,
+        25.0,
+        15.0,
+        red_fill,
+        thick_stroke,
+    )?;
 
     let gradient_fill = ShapeFill::gradient(0x4444FF, 0xFF44FF, 45.0);
     let dashed_stroke = ShapeStroke::new(LineStyle::Dash, 0x00AA00, 1.5);
-    writer.add_custom_shape(ShapeType::Ellipse, 55.0, 120.0, 30.0, 15.0, gradient_fill, dashed_stroke)?;
+    writer.add_custom_shape(
+        ShapeType::Ellipse,
+        55.0,
+        120.0,
+        30.0,
+        15.0,
+        gradient_fill,
+        dashed_stroke,
+    )?;
 
     let transparent_fill = ShapeFill::transparent();
     let arrow_stroke = ShapeStroke::arrow(0x0000FF, 2.0);
-    writer.add_custom_shape(ShapeType::Line, 95.0, 120.0, 30.0, 15.0, transparent_fill, arrow_stroke)?;
+    writer.add_custom_shape(
+        ShapeType::Line,
+        95.0,
+        120.0,
+        30.0,
+        15.0,
+        transparent_fill,
+        arrow_stroke,
+    )?;
 
     writer.add_paragraph("Red rectangle with thick border, gradient ellipse with dashed green border, blue arrow line.")?;
 
@@ -68,23 +93,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     writer.add_shape_with_text(
         ShapeType::Rectangle,
-        20.0, 150.0, 40.0, 20.0,
+        20.0,
+        150.0,
+        40.0,
+        20.0,
         "Centered".to_string(),
-        ShapeAlignment::Center
+        ShapeAlignment::Center,
     )?;
 
     writer.add_shape_with_text(
         ShapeType::Ellipse,
-        70.0, 150.0, 40.0, 20.0,
+        70.0,
+        150.0,
+        40.0,
+        20.0,
         "Left Aligned".to_string(),
-        ShapeAlignment::Left
+        ShapeAlignment::Left,
     )?;
 
     writer.add_shape_with_text(
         ShapeType::Rectangle,
-        120.0, 150.0, 40.0, 20.0,
+        120.0,
+        150.0,
+        40.0,
+        20.0,
         "Right".to_string(),
-        ShapeAlignment::Right
+        ShapeAlignment::Right,
     )?;
 
     writer.add_paragraph("Text can be centered, left-aligned, or right-aligned within shapes.")?;
@@ -95,19 +129,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a triangle
     let triangle_points = vec![
-        (30.0, 180.0),  // Top point
-        (20.0, 200.0),  // Bottom left
-        (40.0, 200.0),  // Bottom right
+        (30.0, 180.0), // Top point
+        (20.0, 200.0), // Bottom left
+        (40.0, 200.0), // Bottom right
     ];
     writer.add_polygon(triangle_points)?;
 
     // Create a pentagon
     let pentagon_points = vec![
-        (70.0, 180.0),  // Top
-        (80.0, 185.0),  // Top right
-        (75.0, 195.0),  // Bottom right
-        (65.0, 195.0),  // Bottom left
-        (60.0, 185.0),  // Top left
+        (70.0, 180.0), // Top
+        (80.0, 185.0), // Top right
+        (75.0, 195.0), // Bottom right
+        (65.0, 195.0), // Bottom left
+        (60.0, 185.0), // Top left
     ];
     writer.add_polygon(pentagon_points)?;
 
@@ -126,7 +160,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
     writer.add_polygon(star_points)?;
 
-    writer.add_paragraph("Triangle, pentagon, and star polygons created from custom point arrays.")?;
+    writer
+        .add_paragraph("Triangle, pentagon, and star polygons created from custom point arrays.")?;
 
     // Example 6: Shape Groups
     writer.add_heading("6. Shape Groups", 2)?;
@@ -148,7 +183,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_name("Group Line".to_string());
 
     // Create and add the group
-    let shape_group = writer.create_shape_group("Example Group")
+    let shape_group = writer
+        .create_shape_group("Example Group")
         .add_shape(group_rect)
         .add_shape(group_circle)
         .add_shape(group_line)
@@ -164,13 +200,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writer.add_paragraph("Combining multiple shape types to create complex diagrams:")?;
 
     // Create a simple flowchart-like diagram
-    
+
     // Start node (circle)
     writer.add_shape_with_text(
         ShapeType::Ellipse,
-        30.0, 270.0, 20.0, 15.0,
+        30.0,
+        270.0,
+        20.0,
+        15.0,
         "Start".to_string(),
-        ShapeAlignment::Center
+        ShapeAlignment::Center,
     )?;
 
     // Arrow to process
@@ -179,9 +218,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Process node (rectangle)
     writer.add_shape_with_text(
         ShapeType::Rectangle,
-        55.0, 270.0, 30.0, 15.0,
+        55.0,
+        270.0,
+        30.0,
+        15.0,
         "Process".to_string(),
-        ShapeAlignment::Center
+        ShapeAlignment::Center,
     )?;
 
     // Arrow to decision
@@ -189,22 +231,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Decision node (diamond-like polygon)
     let diamond_points = vec![
-        (70.0, 295.0),  // Top
-        (80.0, 305.0),  // Right
-        (70.0, 315.0),  // Bottom
-        (60.0, 305.0),  // Left
+        (70.0, 295.0), // Top
+        (80.0, 305.0), // Right
+        (70.0, 315.0), // Bottom
+        (60.0, 305.0), // Left
     ];
     writer.add_polygon(diamond_points)?;
-    
+
     // Decision text (separate text box)
     writer.add_styled_text_box("Decision?", "info")?;
 
     // End node (circle)
     writer.add_shape_with_text(
         ShapeType::Ellipse,
-        100.0, 300.0, 20.0, 15.0,
+        100.0,
+        300.0,
+        20.0,
+        15.0,
         "End".to_string(),
-        ShapeAlignment::Center
+        ShapeAlignment::Center,
     )?;
 
     // Arrow to end
@@ -217,7 +262,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writer.add_paragraph("All measurements and technical details:")?;
 
     // Create a technical specification table
-    let specs_table = writer.add_table(8, 3)?
+    let specs_table = writer
+        .add_table(8, 3)?
         .set_cell(0, 0, "Shape Type")
         .set_cell(0, 1, "Features")
         .set_cell(0, 2, "Use Cases")
@@ -263,17 +309,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let fill = ShapeFill::solid(*color);
         let stroke = ShapeStroke::new(LineStyle::Solid, 0x000000, 1.0);
         writer.add_custom_shape(ShapeType::Rectangle, x, 350.0, 20.0, 15.0, fill, stroke)?;
-        
+
         // Add color name below
         writer.add_shape_with_text(
             ShapeType::Rectangle,
-            x, 370.0, 20.0, 10.0,
+            x,
+            370.0,
+            20.0,
+            10.0,
             name.to_string(),
-            ShapeAlignment::Center
+            ShapeAlignment::Center,
         )?;
     }
 
-    writer.add_paragraph("Color palette showing primary and secondary colors available for shape fills.")?;
+    writer.add_paragraph(
+        "Color palette showing primary and secondary colors available for shape fills.",
+    )?;
 
     // Stroke styles demonstration
     let stroke_styles = [
@@ -288,17 +339,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let stroke = ShapeStroke::new(*style, 0x000000, 1.5);
         let line = Shape::line_mm(20.0, y, 80.0, y).with_stroke(stroke);
         writer.add_shape(line)?;
-        
+
         // Add style name
         writer.add_shape_with_text(
             ShapeType::Rectangle,
-            85.0, y - 5.0, 25.0, 8.0,
+            85.0,
+            y - 5.0,
+            25.0,
+            8.0,
             name.to_string(),
-            ShapeAlignment::Left
+            ShapeAlignment::Left,
         )?;
     }
 
-    writer.add_paragraph("Different stroke styles: solid, dashed, dotted, and dash-dot patterns.")?;
+    writer
+        .add_paragraph("Different stroke styles: solid, dashed, dotted, and dash-dot patterns.")?;
 
     // Summary
     writer.add_heading("Summary", 2)?;
@@ -312,7 +367,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writer.save_to_file("shape_document.hwp")?;
 
     println!("Shape drawing demo document created: shape_document.hwp");
-    
+
     // Show final statistics
     if let Some(stats) = writer.get_document_statistics() {
         println!("Document statistics:");
@@ -329,7 +384,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|p| p.shapes.len())
         .sum();
-    
+
     let total_groups: usize = document.body_texts[0].sections[0]
         .paragraphs
         .iter()
@@ -339,7 +394,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Shape content:");
     println!("  - Total shapes: {}", total_shapes);
     println!("  - Shape groups: {}", total_groups);
-    println!("  - Total paragraphs: {}", document.body_texts[0].sections[0].paragraphs.len());
+    println!(
+        "  - Total paragraphs: {}",
+        document.body_texts[0].sections[0].paragraphs.len()
+    );
 
     Ok(())
 }

@@ -102,7 +102,7 @@ pub fn serialize_document(document: &HwpDocument) -> Result<Vec<u8>> {
             prv_image_stream.set_len(0)?;
             prv_image_stream.write_all(&prv_image)?;
         }
-        
+
         // Create BinData storage if there are images
         if !document.doc_info.bin_data.is_empty() {
             // Ensure BinData storage exists
@@ -110,11 +110,13 @@ pub fn serialize_document(document: &HwpDocument) -> Result<Vec<u8>> {
                 cfb.create_storage("BinData")
                     .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
             }
-            
+
             // Write each binary data item
             for bin_data in &document.doc_info.bin_data {
-                let stream_name = format!("BinData/BIN{:04}.{}", bin_data.bin_id, bin_data.extension);
-                let mut stream = cfb.create_stream(&stream_name)
+                let stream_name =
+                    format!("BinData/BIN{:04}.{}", bin_data.bin_id, bin_data.extension);
+                let mut stream = cfb
+                    .create_stream(&stream_name)
                     .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
                 stream.write_all(&bin_data.data)?;
             }
@@ -222,7 +224,11 @@ fn serialize_body_text(body_text: &crate::parser::body_text::BodyText) -> Result
             if !paragraph.hyperlinks.is_empty() {
                 // Hyperlinks are stored as ParaRangeTag (0x54)
                 for hyperlink in &paragraph.hyperlinks {
-                    write_record(&mut writer, 0x54, &serialize_para_range_tag_hyperlink(&hyperlink)?)?;
+                    write_record(
+                        &mut writer,
+                        0x54,
+                        &serialize_para_range_tag_hyperlink(&hyperlink)?,
+                    )?;
                 }
             }
 
@@ -231,19 +237,26 @@ fn serialize_body_text(body_text: &crate::parser::body_text::BodyText) -> Result
                 // Pictures use CtrlHeader (0x55)
                 write_record(&mut writer, 0x55, &serialize_picture_control(picture)?)?;
             }
-
         }
-        
+
         // Write header/footer controls after section
         if let Some(page_def) = &section.page_def {
             // Write header controls
             for header in page_def.header_footer.headers() {
-                write_record(&mut writer, 0x55, &serialize_header_footer_control(header, true)?)?;
+                write_record(
+                    &mut writer,
+                    0x55,
+                    &serialize_header_footer_control(header, true)?,
+                )?;
             }
-            
+
             // Write footer controls
             for footer in page_def.header_footer.footers() {
-                write_record(&mut writer, 0x55, &serialize_header_footer_control(footer, false)?)?;
+                write_record(
+                    &mut writer,
+                    0x55,
+                    &serialize_header_footer_control(footer, false)?,
+                )?;
             }
         }
     }
@@ -287,40 +300,44 @@ fn serialize_paragraph_text(text: &crate::model::paragraph::ParaText) -> Result<
 }
 
 /// Serialize paragraph character shapes (0x52)
-fn serialize_para_char_shapes(char_shapes: &crate::model::para_char_shape::ParaCharShape) -> Result<Vec<u8>> {
+fn serialize_para_char_shapes(
+    char_shapes: &crate::model::para_char_shape::ParaCharShape,
+) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
-    
+
     // Write number of character shape positions
     writer.write_u32::<LittleEndian>(char_shapes.char_positions.len() as u32)?;
-    
+
     // Write each character position and shape ID
     for pos_shape in &char_shapes.char_positions {
         writer.write_u32::<LittleEndian>(pos_shape.position)?;
         writer.write_u16::<LittleEndian>(pos_shape.char_shape_id)?;
     }
-    
+
     Ok(data)
 }
 
 /// Serialize hyperlink as ParaRangeTag (0x54)
-fn serialize_para_range_tag_hyperlink(hyperlink: &crate::model::hyperlink::Hyperlink) -> Result<Vec<u8>> {
+fn serialize_para_range_tag_hyperlink(
+    hyperlink: &crate::model::hyperlink::Hyperlink,
+) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
     // ParaRangeTag structure for hyperlink (based on actual file analysis)
     // Control ID for hyperlink: 'gsh ' (0x20687367 in little-endian)
     writer.write_u32::<LittleEndian>(0x20687367)?; // 'gsh '
-    
+
     // Fixed header (28 bytes of mostly zeros/fixed values)
     for _ in 0..7 {
         writer.write_u32::<LittleEndian>(0)?;
     }
-    
+
     // Hyperlink data starts at offset 0x20 (32 bytes)
     // Hyperlink type (u16)
     writer.write_u16::<LittleEndian>(hyperlink.hyperlink_type as u16)?;
-    
+
     // Flags (typically 0x000001FF)
     let mut flags = 0x000001FF;
     if hyperlink.open_in_new_window {
@@ -328,21 +345,21 @@ fn serialize_para_range_tag_hyperlink(hyperlink: &crate::model::hyperlink::Hyper
     }
     writer.write_u16::<LittleEndian>((flags & 0xFFFF) as u16)?; // Lower 16 bits
     writer.write_u16::<LittleEndian>((flags >> 16) as u16)?; // Upper 16 bits
-    
+
     // Color info (default: 0x80008000)
     writer.write_u32::<LittleEndian>(0x80008000)?;
-    
+
     // Write strings as UTF-16LE with length prefix
     // Display text
     let display_text_utf16 = string_to_utf16le(&hyperlink.display_text);
     writer.write_u16::<LittleEndian>((display_text_utf16.len() / 2) as u16)?;
     writer.write_all(&display_text_utf16)?;
-    
+
     // Target URL
     let target_url_utf16 = string_to_utf16le(&hyperlink.target_url);
     writer.write_u16::<LittleEndian>((target_url_utf16.len() / 2) as u16)?;
     writer.write_all(&target_url_utf16)?;
-    
+
     // Tooltip (optional)
     if let Some(tooltip) = &hyperlink.tooltip {
         let tooltip_utf16 = string_to_utf16le(tooltip);
@@ -363,7 +380,7 @@ fn serialize_page_def(page_def: &crate::model::page_def::PageDef) -> Result<Vec<
     // Write page dimensions
     writer.write_u32::<LittleEndian>(page_def.width)?;
     writer.write_u32::<LittleEndian>(page_def.height)?;
-    
+
     // Write margins
     writer.write_u32::<LittleEndian>(page_def.left_margin)?;
     writer.write_u32::<LittleEndian>(page_def.right_margin)?;
@@ -372,14 +389,14 @@ fn serialize_page_def(page_def: &crate::model::page_def::PageDef) -> Result<Vec<
     writer.write_u32::<LittleEndian>(page_def.header_margin)?;
     writer.write_u32::<LittleEndian>(page_def.footer_margin)?;
     writer.write_u32::<LittleEndian>(page_def.gutter_margin)?;
-    
+
     // Write properties
     writer.write_u32::<LittleEndian>(page_def.properties)?;
-    
+
     // Write shape IDs
     writer.write_u16::<LittleEndian>(page_def.footnote_shape_id)?;
     writer.write_u16::<LittleEndian>(page_def.page_border_fill_id)?;
-    
+
     // Note: Header/Footer are separate controls, not part of PageDef
     // They should be written as separate CtrlHeader records with 'head'/'foot' IDs
 
@@ -387,33 +404,36 @@ fn serialize_page_def(page_def: &crate::model::page_def::PageDef) -> Result<Vec<
 }
 
 /// Serialize header/footer control
-fn serialize_header_footer_control(header_footer: &crate::model::header_footer::HeaderFooter, _is_header: bool) -> Result<Vec<u8>> {
+fn serialize_header_footer_control(
+    header_footer: &crate::model::header_footer::HeaderFooter,
+    _is_header: bool,
+) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
     // Based on actual file analysis, HeaderFooter is a 40-byte structure with 10 u32 fields
     // Field 1: Unknown (observed: 0x0000E888)
     writer.write_u32::<LittleEndian>(0x0000E888)?;
-    
+
     // Field 2: Unknown (observed: 0x000148DA)
     writer.write_u32::<LittleEndian>(0x000148DA)?;
-    
+
     // Field 3 & 4: Height (observed same value twice: 0x00002138 = 8504 HWPU = ~85mm)
     writer.write_u32::<LittleEndian>(header_footer.height)?;
     writer.write_u32::<LittleEndian>(header_footer.height)?;
-    
+
     // Field 5: Left margin (observed: 0x00001624 = 5668 HWPU = ~56.68mm)
     writer.write_u32::<LittleEndian>(header_footer.margin)?;
-    
+
     // Fields 6-8: Top/Right/Bottom margins (observed: 0x0000109C = 4252 HWPU = ~42.52mm)
     writer.write_u32::<LittleEndian>(header_footer.margin)?;
     writer.write_u32::<LittleEndian>(header_footer.margin)?;
     writer.write_u32::<LittleEndian>(header_footer.margin)?;
-    
+
     // Fields 9-10: Reserved/padding (observed: 0x00000000)
     writer.write_u32::<LittleEndian>(0)?;
     writer.write_u32::<LittleEndian>(0)?;
-    
+
     // Note: The actual text content is stored elsewhere, not in this 40-byte structure
     // This structure only defines the layout properties
 
@@ -428,29 +448,29 @@ fn serialize_picture_control(picture: &crate::model::control::Picture) -> Result
     // Control header for picture
     // Control ID for picture: '$pic'
     writer.write_u32::<LittleEndian>(0x63697024)?; // '$pic' in little-endian (0x24706963 in big-endian)
-    
+
     // Control instance ID
     writer.write_u32::<LittleEndian>(picture.instance_id)?;
-    
+
     // Control attributes
     writer.write_u32::<LittleEndian>(picture.properties)?;
-    
+
     // Position and size
     writer.write_i32::<LittleEndian>(picture.left)?;
     writer.write_i32::<LittleEndian>(picture.top)?;
     writer.write_i32::<LittleEndian>(picture.right)?;
     writer.write_i32::<LittleEndian>(picture.bottom)?;
-    
+
     // Margins
     writer.write_i16::<LittleEndian>(picture.outer_margin_left as i16)?;
     writer.write_i16::<LittleEndian>(picture.outer_margin_right as i16)?;
     writer.write_i16::<LittleEndian>(picture.outer_margin_top as i16)?;
     writer.write_i16::<LittleEndian>(picture.outer_margin_bottom as i16)?;
-    
+
     // Binary item ID and border fill
     writer.write_u16::<LittleEndian>(picture.bin_item_id)?;
     writer.write_u16::<LittleEndian>(picture.border_fill_id)?;
-    
+
     // Image dimensions
     writer.write_u32::<LittleEndian>(picture.image_width)?;
     writer.write_u32::<LittleEndian>(picture.image_height)?;
@@ -710,7 +730,6 @@ fn serialize_tab_def(tab_def: &crate::model::tab_def::TabDef) -> Result<Vec<u8>>
 
     Ok(data)
 }
-
 
 /// Compress data using zlib
 fn compress_data(data: &[u8]) -> Result<Vec<u8>> {

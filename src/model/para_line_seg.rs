@@ -77,7 +77,7 @@ impl LineSegment {
             line_height,
             text_part_height: line_height - (line_height / 6), // Typical text height is ~5/6 of line height
             distance_baseline_to_line_vertical_position: line_height / 6, // Baseline offset
-            line_space: 0, // No extra line spacing by default
+            line_space: 0,                                     // No extra line spacing by default
             segment_width,
             properties: 0, // No special properties
         }
@@ -142,7 +142,7 @@ impl ParaLineSeg {
     ) -> Self {
         let mut line_segments = Vec::new();
         let chars_per_line = (max_width / average_char_width.max(1)) as usize;
-        
+
         if chars_per_line == 0 {
             // If width is too small, create single line with text
             let segment = LineSegment::new(0, 0, line_height, max_width);
@@ -153,14 +153,14 @@ impl ParaLineSeg {
 
         let mut current_position = 0u32;
         let mut line_y = 0i32;
-        
+
         let text_chars: Vec<char> = text.chars().collect();
         let mut i = 0;
-        
+
         while i < text_chars.len() {
             let line_start = i;
             let mut line_end = (i + chars_per_line).min(text_chars.len());
-            
+
             // Try to break at word boundaries
             if line_end < text_chars.len() {
                 // Look back for a space to break on
@@ -171,25 +171,20 @@ impl ParaLineSeg {
                         break;
                     }
                 }
-                
+
                 // If we found a good break point, use it
                 if break_point > line_start {
                     line_end = break_point;
                 }
             }
-            
+
             let line_chars = line_end - line_start;
             let line_width = (line_chars as i32 * average_char_width).min(max_width);
-            
-            let segment = LineSegment::new(
-                current_position,
-                line_y,
-                line_height,
-                line_width,
-            );
-            
+
+            let segment = LineSegment::new(current_position, line_y, line_height, line_width);
+
             line_segments.push(segment);
-            
+
             current_position += line_chars as u32;
             line_y += line_height;
             i = line_end;
@@ -231,14 +226,30 @@ impl ParaLineSeg {
         let mut writer = Cursor::new(&mut data);
 
         for segment in &self.line_segments {
-            writer.write_u32::<LittleEndian>(segment.text_start_position).unwrap();
-            writer.write_i32::<LittleEndian>(segment.line_vertical_position).unwrap();
-            writer.write_i32::<LittleEndian>(segment.line_height).unwrap();
-            writer.write_i32::<LittleEndian>(segment.text_part_height).unwrap();
-            writer.write_i32::<LittleEndian>(segment.distance_baseline_to_line_vertical_position).unwrap();
-            writer.write_i32::<LittleEndian>(segment.line_space).unwrap();
-            writer.write_i32::<LittleEndian>(segment.segment_width).unwrap();
-            writer.write_u32::<LittleEndian>(segment.properties).unwrap();
+            writer
+                .write_u32::<LittleEndian>(segment.text_start_position)
+                .unwrap();
+            writer
+                .write_i32::<LittleEndian>(segment.line_vertical_position)
+                .unwrap();
+            writer
+                .write_i32::<LittleEndian>(segment.line_height)
+                .unwrap();
+            writer
+                .write_i32::<LittleEndian>(segment.text_part_height)
+                .unwrap();
+            writer
+                .write_i32::<LittleEndian>(segment.distance_baseline_to_line_vertical_position)
+                .unwrap();
+            writer
+                .write_i32::<LittleEndian>(segment.line_space)
+                .unwrap();
+            writer
+                .write_i32::<LittleEndian>(segment.segment_width)
+                .unwrap();
+            writer
+                .write_u32::<LittleEndian>(segment.properties)
+                .unwrap();
         }
 
         data

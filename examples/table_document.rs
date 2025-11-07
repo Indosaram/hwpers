@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Add title
     writer.add_heading("표 예제 문서", 1)?;
-    
+
     // Simple table using add_simple_table
     writer.add_heading("간단한 표", 2)?;
     writer.add_simple_table(&[
@@ -17,12 +17,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         vec!["이영희", "28", "디자이너"],
         vec!["박민수", "35", "매니저"],
     ])?;
-    
+
     writer.add_paragraph("")?; // Empty line
 
     // Table with header using TableBuilder
     writer.add_heading("헤더가 있는 표", 2)?;
-    writer.add_table(4, 3)?
+    writer
+        .add_table(4, 3)
         .set_header_row(true)
         .set_cell(0, 0, "제품명")
         .set_cell(0, 1, "가격")
@@ -37,12 +38,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_cell(3, 1, "80,000원")
         .set_cell(3, 2, "30개")
         .finish()?;
-    
+
     writer.add_paragraph("")?;
 
     // Larger table
     writer.add_heading("성적표", 2)?;
-    writer.add_table(6, 5)?
+    writer
+        .add_table(6, 5)
         .set_header_row(true)
         .set_cell(0, 0, "이름")
         .set_cell(0, 1, "국어")
@@ -75,14 +77,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_cell(5, 3, "88.8")
         .set_cell(5, 4, "87.6")
         .finish()?;
-    
+
     writer.add_paragraph("")?;
 
     // Mixed content with table
     writer.add_heading("표와 텍스트 혼합", 2)?;
     writer.add_paragraph("다음은 프로젝트 일정표입니다:")?;
-    
-    writer.add_table(5, 3)?
+
+    writer
+        .add_table(5, 3)
         .set_header_row(true)
         .set_cell(0, 0, "작업")
         .set_cell(0, 1, "시작일")
@@ -100,7 +103,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_cell(4, 1, "2024-03-01")
         .set_cell(4, 2, "2024-03-31")
         .finish()?;
-    
+
     writer.add_paragraph("위 일정에 따라 프로젝트를 진행할 예정입니다.")?;
 
     // Save to file

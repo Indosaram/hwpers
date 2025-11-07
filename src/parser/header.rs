@@ -146,10 +146,10 @@ impl FileHeader {
 
     /// Set document version
     pub fn set_version(&mut self, major: u8, minor: u8, build: u8, revision: u8) -> &mut Self {
-        self.version = ((major as u32) << 24) 
-                     | ((minor as u32) << 16) 
-                     | ((build as u32) << 8) 
-                     | (revision as u32);
+        self.version = ((major as u32) << 24)
+            | ((minor as u32) << 16)
+            | ((build as u32) << 8)
+            | (revision as u32);
         self
     }
 }

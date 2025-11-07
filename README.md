@@ -19,11 +19,15 @@ A Rust library for parsing Korean Hangul Word Processor (HWP) files with full la
 - **Safe Rust**: Memory-safe implementation with comprehensive error handling
 
 ### Writer (Creating HWP files) - v0.3.0+
-- **Basic Document Creation**: Create simple HWP documents with text content
-- **Paragraph Formatting**: Text alignment, line spacing, paragraph spacing
-- **Page Layout**: Custom page sizes, margins, orientation
-- **Hyperlinks**: URL, email, file, and bookmark links (partial support)
-- **Header/Footer**: Basic header and footer support (limited functionality)
+- **Document Creation**: Full HWP document writing support
+- **Rich Text Formatting**: Bold, italic, colors, fonts, sizes
+- **Tables**: Creation, styling, cell merging
+- **Lists**: Bullets, numbering, Korean/alphabetic/roman formats
+- **Images**: PNG/JPEG/BMP/GIF with captions
+- **Text Boxes**: Positioned and styled text boxes
+- **Hyperlinks**: URL, email, file, and bookmark links
+- **Headers/Footers**: Page numbers and custom content
+- **Page Layout**: Sizes, margins, orientation, columns, backgrounds
 
 ## Quick Start
 
@@ -114,7 +118,7 @@ writer.add_paragraph_with_hyperlinks(
 // Configure page layout
 writer.set_custom_page_size(210.0, 297.0, // A4 size
     hwpers::model::page_layout::PageOrientation::Portrait)?;
-writer.set_page_margins_mm(20.0, 20.0, 20.0, 20.0)?;
+writer.set_page_margins_mm(20.0, 20.0, 20.0, 20.0);
 
 // Add header and footer
 writer.add_header("Document Header");
@@ -202,30 +206,80 @@ hwp_info document.hwp
 
 This library supports HWP 5.0 format files. For older HWP formats, consider using format conversion tools first.
 
-## Writer Limitations (v0.3.0)
+## Writer Features (v0.3.0+)
 
-The HWP writer functionality is currently in early development with several limitations:
+The HWP writer functionality has been significantly improved with comprehensive feature support:
 
-### ⚠️ Partially Implemented
-- **Hyperlinks**: Basic structure implemented, but position tracking within paragraphs needs refinement
-- **Header/Footer**: 40-byte structure implemented, but text content storage mechanism incomplete
-- **Page Layout**: Basic settings work, but multi-column layouts not supported
-- **Styles**: Currently uses hardcoded style IDs; proper style management system needed
+### ✅ Fully Implemented
+- **Hyperlinks**: Complete hyperlink support with proper serialization
+  - URL links, email links, file links, bookmarks
+  - Multiple hyperlinks per paragraph
+  - Custom styling (colors, underline, visited state)
+- **Header/Footer**: Full header and footer implementation
+  - Custom header/footer text
+  - Page numbering with multiple formats (numeric, roman, etc.)
+  - Multiple headers/footers per document
+- **Page Layout**: Comprehensive page layout control
+  - Custom page sizes and standard sizes (A4, Letter, etc.)
+  - Portrait/landscape orientation
+  - Custom margins (narrow, normal, wide, custom)
+  - Multi-column layouts with adjustable spacing
+  - Page background colors
+- **Tables**: Full table creation and formatting
+  - Cell borders and styling
+  - Cell merging (horizontal and vertical)
+  - Custom cell content
+- **Lists/Numbering**: Complete list support
+  - Bullet lists with different symbols per level
+  - Numbered lists (1., 2., 3., ...)
+  - Alphabetic lists (a), b), c), ...)
+  - Roman numeral lists (i., ii., iii., ...)
+  - Korean lists (가., 나., 다., ...)
+  - Nested lists with proper indentation
+- **Text Boxes**: Full text box implementation
+  - Positioned text boxes
+  - Styled text boxes (highlight, warning, info, etc.)
+  - Custom styling (borders, backgrounds, alignment)
+  - Floating text boxes with rotation and transparency
+- **Images**: Complete image insertion
+  - PNG, JPEG, BMP, GIF support
+  - Custom dimensions and positioning
+  - Image captions
+  - Proper BinData integration
+- **Styled Text**: Rich text formatting
+  - Bold, italic, underline, strikethrough
+  - Custom fonts and sizes
+  - Text colors and background colors
+  - Multiple styles in single paragraph
+- **Advanced Formatting**:
+  - Paragraph alignment (left, center, right, justify)
+  - Line spacing control
+  - Paragraph spacing (before/after)
+  - Headings with automatic sizing
+  - Character and paragraph styles
+- **Document Properties**: Full metadata support
+  - Title, author, subject, keywords
+  - Document statistics (character count, word count, etc.)
+  - Automatic statistics updates
 
 ### ❌ Not Yet Implemented
-- **Images**: Control structure exists but BinData stream integration missing - images won't display
-- **Tables**: Table creation and formatting not implemented
-- **Lists/Numbering**: Bullet points and numbered lists not supported
-- **Text Boxes**: Text box controls not implemented
-- **Shapes/Drawing**: Shape and drawing objects not supported
-- **Advanced Formatting**: Character styles, fonts, colors need proper style manager
-- **Document Properties**: Metadata and document properties not fully implemented
+- **Shapes/Drawing**: Geometric shapes and drawing objects
+  - Rectangles, circles, ellipses
+  - Lines, arrows, polygons
+  - Custom shapes with styling
+  - Shapes with text content
+  - Shape grouping
+  - *(See examples/shape_document.rs.disabled for usage examples)*
+- **Charts/Graphs**: Data visualization objects
+- **Mathematical Equations**: MathML support
+- **Forms**: Input fields and form controls
+- **Comments/Annotations**: Review and comment features
+- **Track Changes**: Revision history
+- **Mail Merge**: Variable field insertion
 
 ### 🔧 Known Issues
-- Generated files may not open correctly in some versions of Hanword
-- Style IDs are hardcoded and may conflict with document defaults
-- Position tracking for hyperlinks within paragraphs is imprecise
 - No compression support for writer (reader supports both compressed and uncompressed)
+- Some advanced table features may have compatibility issues with older Hanword versions
 
 ## Contributing
 

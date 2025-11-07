@@ -116,12 +116,14 @@ impl BodyTextParser {
                         para.ctrl_header = CtrlHeader::from_record(&record).ok();
                     }
                 }
-                
+
                 // ParaRangeTag (0x54) - Contains hyperlink information
                 Some(HwpTag::ParaRangeTag) => {
                     if let Some(ref mut para) = current_paragraph {
                         // Try to parse as hyperlink
-                        if let Ok(hyperlink) = crate::model::hyperlink::Hyperlink::from_record(&record) {
+                        if let Ok(hyperlink) =
+                            crate::model::hyperlink::Hyperlink::from_record(&record)
+                        {
                             para.hyperlinks.push(hyperlink);
                         }
                     }

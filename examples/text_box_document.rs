@@ -1,4 +1,7 @@
-use hwpers::{HwpWriter, model::{TextBoxAlignment, TextBoxBorderStyle}};
+use hwpers::{
+    model::{TextBoxAlignment, TextBoxBorderStyle},
+    HwpWriter,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = HwpWriter::new();
@@ -28,13 +31,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writer.add_paragraph("Text boxes can be positioned at specific coordinates:")?;
     writer.add_text_box_at_position(
         "This text box is positioned at 50mm, 30mm with size 80mm x 25mm",
-        50, 30, 80, 25
+        50,
+        30,
+        80,
+        25,
     )?;
 
     // Example 3: Styled text boxes
     writer.add_heading("3. Predefined Styles", 2)?;
     writer.add_paragraph("Several predefined styles are available:")?;
-    
+
     writer.add_styled_text_box("Highlight style - great for important notes", "highlight")?;
     writer.add_styled_text_box("Warning style - for alerts and cautions", "warning")?;
     writer.add_styled_text_box("Info style - for helpful information", "info")?;
@@ -44,11 +50,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 4: Custom styling
     writer.add_heading("4. Custom Styling", 2)?;
     writer.add_paragraph("You can create custom styled text boxes:")?;
-    
+
     writer.add_custom_text_box(
         "Custom blue box with dashed border",
-        20, 150, // position
-        100, 40, // size
+        20,
+        150, // position
+        100,
+        40, // size
         TextBoxAlignment::Center,
         TextBoxBorderStyle::Dashed,
         0x0000FF, // blue border
@@ -57,8 +65,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     writer.add_custom_text_box(
         "Green success message box",
-        130, 150, // position
-        90, 35,   // size
+        130,
+        150, // position
+        90,
+        35, // size
         TextBoxAlignment::Left,
         TextBoxBorderStyle::Solid,
         0x00AA00, // green border
@@ -68,13 +78,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 5: Floating text box with rotation
     writer.add_heading("5. Floating and Rotated Text Box", 2)?;
     writer.add_paragraph("Text boxes can be floating with transparency and rotation:")?;
-    
+
     writer.add_floating_text_box(
         "ROTATED WATERMARK",
-        60, 180, // position
-        120, 20, // size
-        180,     // semi-transparent
-        45,      // 45 degree rotation
+        60,
+        180, // position
+        120,
+        20,  // size
+        180, // semi-transparent
+        45,  // 45 degree rotation
     )?;
 
     // Example 6: Multiple text boxes layout
@@ -89,10 +101,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Middle content
     writer.add_text_box_at_position(
         "Main content area with longer text that demonstrates wrapping in text boxes",
-        10, 250, 120, 40
+        10,
+        250,
+        120,
+        40,
     )?;
-    
-    writer.add_text_box_at_position("Sidebar\n\n• Point 1\n• Point 2\n• Point 3", 140, 250, 70, 40)?;
+
+    writer.add_text_box_at_position(
+        "Sidebar\n\n• Point 1\n• Point 2\n• Point 3",
+        140,
+        250,
+        70,
+        40,
+    )?;
 
     // Bottom row
     writer.add_styled_text_box("Footer Information", "info")?;
@@ -109,8 +130,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writer.save_to_file("text_box_document.hwp")?;
 
     println!("Text box demo document created: text_box_document.hwp");
-    println!("Document contains {} paragraphs with various text box examples", 
-             writer.document().body_texts[0].sections[0].paragraphs.len());
+    println!(
+        "Document contains {} paragraphs with various text box examples",
+        writer.document().body_texts[0].sections[0].paragraphs.len()
+    );
 
     // Print statistics
     if let Some(stats) = writer.get_document_statistics() {

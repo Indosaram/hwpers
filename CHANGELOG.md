@@ -5,78 +5,165 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0] - 2025-01-29
+## [0.3.1] - 2025-01-29
 
-### Added
-- **HWP Writer Module**: Initial implementation of HWP document creation capabilities
-  - Basic document structure creation with sections and paragraphs
+### Added - Complete HWP Writer Implementation
+
+#### Core Features
+- **HWP Writer Module**: Full HWP document creation capabilities
+  - Document structure creation with sections and paragraphs
   - Text content writing with UTF-16LE encoding support
   - Compound File Binary (CFB) format generation
+  - Complete serialization for all supported features
 
-- **Hyperlink Support**
-  - URL, email, file, and bookmark link types
-  - `Hyperlink` model with various constructors
-  - Serialization with correct control ID ('gsh ')
-  - Multiple hyperlinks per paragraph support
-
-- **Header/Footer Functionality**
-  - Basic header and footer support
-  - Page number insertion with various formats (numeric, roman, alphabetic)
-  - 40-byte structure implementation based on file analysis
-
-- **Page Layout Configuration**
-  - Custom page sizes (width/height in mm)
-  - Page margins (top/bottom/left/right)
-  - Page orientation (portrait/landscape)
-  - Standard page sizes (A4, Letter, Legal)
+#### Rich Text & Formatting
+- **Styled Text**: Rich text formatting support
+  - Bold, italic, underline, strikethrough
+  - Custom fonts and font sizes
+  - Text colors and background colors
+  - Multiple styles within single paragraph
+  - `StyledText` API with range-based styling
 
 - **Paragraph Formatting**
   - Text alignment (left, center, right, justify)
   - Line spacing (percentage-based)
   - Paragraph spacing (before/after in mm)
+  - Heading levels 1-6 with automatic sizing
   - Character and paragraph shape management
 
-- **New Model Structures**
-  - `hyperlink::Hyperlink` - Hyperlink data model
-  - `header_footer::HeaderFooter` - Header/footer configuration
-  - `page_layout::PageLayout` - Page layout settings
-  - `text_box::TextBox` - Text box structure (partial)
+#### Tables
+- **Full Table Support**
+  - Table creation with custom rows/columns
+  - Cell content and formatting
+  - Cell borders with customizable styles
+  - Horizontal and vertical cell merging
+  - `TableBuilder` API for fluent table construction
 
-- **Writer API Methods**
-  - `HwpWriter::new()` - Create new document writer
-  - `add_paragraph()` - Add text paragraph
-  - `add_paragraph_with_hyperlinks()` - Add paragraph with links
-  - `add_aligned_paragraph()` - Add paragraph with alignment
-  - `add_paragraph_with_spacing()` - Add paragraph with custom spacing
-  - `add_header()` / `add_footer_with_page_number()` - Header/footer management
-  - `set_custom_page_size()` / `set_page_margins_mm()` - Page layout
-  - `save_to_file()` - Write document to file
+#### Lists
+- **Complete List Implementation**
+  - Bullet lists with different symbols per level (•, ◦, ▪)
+  - Numbered lists (1., 2., 3., ...)
+  - Alphabetic lists (a), b), c), ...)
+  - Roman numeral lists (i., ii., iii., ...)
+  - Korean lists (가., 나., 다., ...)
+  - Nested lists with proper indentation
+  - Paragraph shape-based indentation system
 
-- **Examples**
-  - `complete_feature_demo.rs` - Comprehensive feature demonstration
-  - `hyperlink_document.rs` - Hyperlink examples
-  - `header_footer_document.rs` - Header/footer usage
-  - Various analysis tools for understanding HWP structure
+#### Images
+- **Image Insertion**
+  - PNG, JPEG, BMP, GIF format support
+  - Custom dimensions and positioning
+  - Image captions with automatic formatting
+  - Proper BinData integration
+  - 1-based bin_id system
+
+#### Text Boxes
+- **Text Box Support**
+  - Basic text boxes with positioning
+  - Predefined styles (basic, highlight, warning, info, bubble, transparent)
+  - Custom styling (borders, backgrounds, colors, alignment)
+  - Floating text boxes with rotation and transparency
+  - Size and position control in millimeters
+
+#### Hyperlinks
+- **Complete Hyperlink Support**
+  - URL links with proper serialization
+  - Email links (mailto: format)
+  - File links
+  - Internal bookmarks
+  - External document bookmarks
+  - Custom styling (colors, underline, visited state)
+  - Multiple hyperlinks per paragraph
+  - Predefined link styles
+
+#### Page Layout
+- **Comprehensive Page Layout Control**
+  - Custom page sizes (width/height in mm)
+  - Standard sizes (A4, A3, A5, Letter, Legal, Tabloid, B4, B5)
+  - Portrait/landscape orientation
+  - Custom margins (left, right, top, bottom)
+  - Predefined margin presets (narrow, normal, wide)
+  - Multi-column layouts with adjustable spacing
+  - Page background colors
+  - Page numbering with multiple formats
+
+#### Headers & Footers
+- **Full Header/Footer Implementation**
+  - Custom header and footer text
+  - Page numbering (numeric, roman upper/lower, alphabetic)
+  - Multiple headers/footers per document
+  - Proper serialization and storage
+
+#### Document Properties
+- **Metadata Support**
+  - Document title, author, subject, keywords
+  - Automatic statistics calculation
+  - Character count (Hangul, Hanja, English, digits, spaces)
+  - Word count and paragraph count
+  - Page count estimation
+  - Section count tracking
 
 ### Changed
-- Updated `Document` model to support writer functionality
-- Enhanced `Section` and `Paragraph` models for serialization
-- Improved error handling with writer-specific error types
-- Extended parser to better understand control structures
+- Page layout methods changed from `Result<()>` to `void` for direct state mutation
+- Image serialization improved with separate caption paragraphs
+- List indentation system switched from text-based to paragraph shape-based
+- Heading implementation enhanced with per-level paragraph shapes
+- Empty table handling changed from error to no-op
 
 ### Fixed
-- Hyperlink control ID corrected to 'gsh ' (0x20687367)
-- Header/footer structure corrected to 40-byte format
-- Picture control ID corrected to '$pic' (0x63697024)
-- UTF-16LE encoding handling for Korean text
+- **Page Layout Bugs**
+  - Fixed margin methods overwriting entire page layout
+  - All page layout setters now modify state directly
 
-### Known Issues
-- Image/BinData integration incomplete - images won't display
-- Style management system uses hardcoded IDs
-- Header/footer text storage mechanism incomplete
-- Position tracking for hyperlinks within paragraphs needs refinement
-- No compression support for writer (reader supports both)
-- Tables, lists, and text boxes not yet implemented
+- **Hyperlink Serialization**
+  - Completely rewrote `from_record()` to match `to_bytes()` format
+  - Fixed deserialization starting at offset 0 instead of offset 48
+  - Proper UTF-16LE string parsing with bounds checking
+
+- **List Formatting**
+  - Korean list marker format: "가." instead of "가)."
+  - Implemented unique para_shape_id for each indentation level
+  - Nested list indentation now works correctly
+
+- **Image Features**
+  - Caption now added as separate paragraph ("그림: caption")
+  - Fixed bin_id to be 1-based (1, 2, 3, ...) instead of 0-based
+  - Fixed abs_name to "image1.png", "image2.png" format
+  - Picture control paragraph text set to None
+  - control_mask set to 2 (0x02)
+
+- **Heading Styles**
+  - Each heading level now creates unique paragraph shape
+  - Proper spacing_before and spacing_after from HeadingStyle
+
+- **Empty Table Handling**
+  - Empty tables no longer throw error
+  - Returns Ok(()) without adding paragraphs
+
+### Tests
+- 104 tests all passing
+- Comprehensive test coverage for all features
+- Round-trip serialization tests
+- Integration tests for complex documents
+
+### Examples
+- `complete_feature_demo.rs` - All features demonstration
+- `page_layout_document.rs` - Page layout examples
+- `shape_document.rs.disabled` - Future shape drawing reference
+
+### Documentation
+- Complete README update with all implemented features
+- TODO comments for unimplemented features (shapes, charts, etc.)
+- Inline documentation for all public APIs
+
+### Not Yet Implemented
+- Geometric shapes (rectangles, circles, lines, arrows, polygons)
+- Charts and graphs
+- Mathematical equations (MathML)
+- Forms and input fields
+- Comments and annotations
+- Track changes/revision history
+- Mail merge fields
 
 ## [0.2.0] - 2025-01-28
 
@@ -106,6 +193,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[0.3.0]: https://github.com/Indosaram/hwpers/compare/v0.2.0...v0.3.0
+[0.3.1]: https://github.com/Indosaram/hwpers/compare/v0.2.0...v0.3.1
 [0.2.0]: https://github.com/Indosaram/hwpers/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Indosaram/hwpers/releases/tag/v0.1.0

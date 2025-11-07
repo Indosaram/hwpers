@@ -89,15 +89,33 @@ impl SectionDef {
 
         writer.write_u32::<LittleEndian>(self.properties).unwrap();
         writer.write_u16::<LittleEndian>(self.column_gap).unwrap();
-        writer.write_u16::<LittleEndian>(self.vertical_line_align).unwrap();
-        writer.write_u16::<LittleEndian>(self.horizontal_line_align).unwrap();
-        writer.write_u32::<LittleEndian>(self.default_tab_stop).unwrap();
-        writer.write_u16::<LittleEndian>(self.numbering_shape_id).unwrap();
-        writer.write_u16::<LittleEndian>(self.page_starting_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.image_starting_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.table_starting_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.equation_starting_number).unwrap();
-        writer.write_u16::<LittleEndian>(self.default_language).unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.vertical_line_align)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.horizontal_line_align)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.default_tab_stop)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.numbering_shape_id)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.page_starting_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.image_starting_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.table_starting_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.equation_starting_number)
+            .unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.default_language)
+            .unwrap();
 
         data
     }

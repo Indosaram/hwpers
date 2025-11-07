@@ -1,6 +1,6 @@
 // Sample HWP file analyzer - analyzes /Users/indo/Downloads/sample.hwp
+use hwpers::parser::record::{HwpTag, Record};
 use hwpers::reader::CfbReader;
-use hwpers::parser::record::{Record, HwpTag};
 use hwpers::reader::StreamReader;
 use hwpers::utils::compression::decompress_stream;
 use std::collections::HashMap;
@@ -10,29 +10,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let file_path = "/Users/indo/Downloads/sample.hwp";
     let mut reader = CfbReader::from_file(file_path)?;
-    
+
     // List all streams first
     println!("🗂️ CFB 스트림 목록:");
     reader.list_streams().iter().for_each(|stream| {
         println!("  - {}", stream);
     });
     println!();
-    
+
     // Parse FileHeader to check compression and other properties
     let header_data = reader.read_stream("FileHeader")?;
     let header = hwpers::parser::header::FileHeader::parse(header_data)?;
     println!("📁 파일 헤더 정보:");
-    println!("  서명: {:?}", std::str::from_utf8(&header.signature[..17]).unwrap_or("Invalid"));
+    println!(
+        "  서명: {:?}",
+        std::str::from_utf8(&header.signature[..17]).unwrap_or("Invalid")
+    );
     println!("  버전: {}", header.version);
     println!("  압축 여부: {}", header.is_compressed());
     println!("  암호화 여부: {}", header.is_encrypted());
     println!();
-    
+
     // Analyze DocInfo
     if reader.stream_exists("DocInfo") {
         let doc_info_data = reader.read_stream("DocInfo")?;
         println!("📋 DocInfo 스트림 크기: {} bytes", doc_info_data.len());
-        
+
         // Try to decompress if needed and analyze
         let data = if header.is_compressed() {
             match decompress_stream(&doc_info_data) {
@@ -48,11 +51,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             doc_info_data
         };
-        
+
         // Parse DocInfo records
         let mut reader = StreamReader::new(data);
         let mut doc_info_records = Vec::new();
-        
+
         while reader.remaining() >= 8 {
             match Record::parse(&mut reader) {
                 Ok(record) => {
@@ -61,24 +64,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Err(_) => break,
             }
         }
-        
+
         println!("  DocInfo 레코드 수: {}", doc_info_records.len());
         println!();
     }
-    
+
     // Analyze BodyText sections
     let mut section_idx = 0;
-    
+
     loop {
         let section_name = format!("BodyText/Section{}", section_idx);
         if !reader.stream_exists(&section_name) {
             break;
         }
-        
+
         println!("📄 {} 분석:", section_name);
         let section_data = reader.read_stream(&section_name)?;
         println!("  원본 크기: {} bytes", section_data.len());
-        
+
         // Decompress if needed
         let data = if header.is_compressed() {
             match decompress_stream(&section_data) {
@@ -94,28 +97,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             section_data
         };
-        
+
         // Parse records and collect statistics
         let mut stream_reader = StreamReader::new(data);
         let mut record_count = 0;
         let mut tag_counts = HashMap::new();
         let mut special_records: Vec<(String, u64, Record)> = Vec::new();
-        
+
         while stream_reader.remaining() >= 8 {
             let position = stream_reader.position();
-            
+
             match Record::parse(&mut stream_reader) {
                 Ok(record) => {
                     record_count += 1;
                     let tag = HwpTag::from_u16(record.tag_id());
-                    
+
                     // Count tags
                     *tag_counts.entry(record.tag_id()).or_insert(0) += 1;
-                    
+
                     // Collect special records
                     match tag {
                         Some(HwpTag::ParaRangeTag) => {
-                            special_records.push(("ParaRangeTag (하이퍼링크)".to_string(), position, record));
+                            special_records.push((
+                                "ParaRangeTag (하이퍼링크)".to_string(),
+                                position,
+                                record,
+                            ));
                         }
                         Some(HwpTag::ParaText) => {
                             // Don't collect all ParaText, too many
@@ -147,33 +154,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        
+
         println!("  총 레코드 수: {}", record_count);
-        
+
         // Print tag statistics
         println!("  📊 태그 통계 (상위 10개):");
         let mut sorted_tags: Vec<_> = tag_counts.into_iter().collect();
         sorted_tags.sort_by(|a, b| b.1.cmp(&a.1));
-        
+
         for (tag_id, count) in sorted_tags.iter().take(10) {
             let tag_name = HwpTag::from_u16(*tag_id)
                 .map(|t| format!("{:?}", t))
                 .unwrap_or_else(|| format!("Unknown_0x{:04X}", tag_id));
             println!("    0x{:04X} ({}): {} 개", tag_id, tag_name, count);
         }
-        
+
         // Analyze special records
         if !special_records.is_empty() {
             println!("  🎯 특별 레코드 상세 분석:");
             for (name, position, record) in &special_records {
                 println!("    {} at 0x{:08X}:", name, position);
                 println!("      크기: {} bytes", record.data.len());
-                
+
                 // Show hex dump for smaller records
                 if record.data.len() <= 256 {
                     print_hex_dump(&record.data, 8);
                 }
-                
+
                 // Try to parse specific types
                 match HwpTag::from_u16(record.tag_id()) {
                     Some(HwpTag::ParaRangeTag) => {
@@ -195,17 +202,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!();
             }
         }
-        
+
         section_idx += 1;
         println!();
     }
-    
+
     if section_idx == 0 {
         println!("❌ BodyText 섹션을 찾을 수 없습니다.");
     } else {
         println!("✅ 총 {} 개의 섹션을 분석했습니다.", section_idx);
     }
-    
+
     Ok(())
 }
 
@@ -242,7 +249,10 @@ fn analyze_hyperlink_record(record: &Record) {
             println!("          표시 텍스트: \"{}\"", hyperlink.display_text);
             println!("          대상 URL: \"{}\"", hyperlink.target_url);
             println!("          유형: {:?}", hyperlink.hyperlink_type);
-            println!("          위치: {}, 길이: {}", hyperlink.start_position, hyperlink.length);
+            println!(
+                "          위치: {}, 길이: {}",
+                hyperlink.start_position, hyperlink.length
+            );
         }
         Err(e) => {
             println!("        ❌ 파싱 실패: {}", e);

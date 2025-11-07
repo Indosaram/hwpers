@@ -23,11 +23,17 @@ pub use self::char_shape::{CharShape, FaceName};
 pub use self::control::{Control, Table, TableCell};
 pub use self::ctrl_header::{ControlType, CtrlHeader};
 pub use self::document::{DocumentProperties, FormattedText, HwpDocument};
-pub use self::header_footer::{HeaderFooter, HeaderFooterCollection, HeaderFooterType, PageApplyType, HeaderFooterAlignment, PageNumberFormat};
-pub use self::hyperlink::{Hyperlink, HyperlinkType, HyperlinkDisplay};
+pub use self::header_footer::{
+    HeaderFooter, HeaderFooterAlignment, HeaderFooterCollection, HeaderFooterType, PageApplyType,
+    PageNumberFormat,
+};
+pub use self::hyperlink::{Hyperlink, HyperlinkDisplay, HyperlinkType};
 pub use self::list_header::ListHeader;
 pub use self::page_def::PageDef;
-pub use self::page_layout::{PageLayout, PageMargins, PageOrientation, PaperSize, MarginUnit, mm_to_hwp_units, inches_to_hwp_units, hwp_units_to_mm, hwp_units_to_inches};
+pub use self::page_layout::{
+    hwp_units_to_inches, hwp_units_to_mm, inches_to_hwp_units, mm_to_hwp_units, MarginUnit,
+    PageLayout, PageMargins, PageOrientation, PaperSize,
+};
 pub use self::para_char_shape::{CharPositionShape, ParaCharShape};
 pub use self::para_line_seg::{LineSegment, ParaLineSeg};
 pub use self::para_shape::ParaShape;
