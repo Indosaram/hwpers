@@ -124,7 +124,6 @@ fn test_table_with_long_text() {
 
     writer
         .add_table(2, 2)
-        .unwrap()
         .set_cell(0, 0, "This is a very long text that should be truncated")
         .set_cell(0, 1, "Short")
         .set_cell(1, 0, "Normal")

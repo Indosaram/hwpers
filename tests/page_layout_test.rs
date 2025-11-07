@@ -15,7 +15,7 @@ fn test_page_orientation() {
     // Set landscape orientation
     writer.set_page_orientation(PageOrientation::Landscape);
 
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.orientation, PageOrientation::Landscape);
     // For A4, landscape should have width > height
     assert!(layout.width > layout.height);
@@ -29,7 +29,7 @@ fn test_paper_sizes() {
 
     // Test A4
     writer.set_paper_size(PaperSize::A4);
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.paper_size, PaperSize::A4);
     let (a4_width, a4_height) = PaperSize::A4.dimensions_hwp_units();
     assert_eq!(layout.width, a4_width);
@@ -37,7 +37,7 @@ fn test_paper_sizes() {
 
     // Test Letter
     writer.set_paper_size(PaperSize::Letter);
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.paper_size, PaperSize::Letter);
     let (letter_width, letter_height) = PaperSize::Letter.dimensions_hwp_units();
     assert_eq!(layout.width, letter_width);
@@ -45,7 +45,7 @@ fn test_paper_sizes() {
 
     // Test A3
     writer.set_paper_size(PaperSize::A3);
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.paper_size, PaperSize::A3);
     let (a3_width, a3_height) = PaperSize::A3.dimensions_hwp_units();
     assert_eq!(layout.width, a3_width);
@@ -63,7 +63,7 @@ fn test_page_margins_mm() {
     // Set margins in millimeters
     writer.set_page_margins_mm(25.0, 30.0, 20.0, 15.0);
 
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.margins.left, mm_to_hwp_units(25.0));
     assert_eq!(layout.margins.right, mm_to_hwp_units(30.0));
     assert_eq!(layout.margins.top, mm_to_hwp_units(20.0));
@@ -79,7 +79,7 @@ fn test_page_margins_inches() {
     // Set margins in inches
     writer.set_page_margins_inches(1.0, 1.2, 0.8, 0.6);
 
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.margins.left, inches_to_hwp_units(1.0));
     assert_eq!(layout.margins.right, inches_to_hwp_units(1.2));
     assert_eq!(layout.margins.top, inches_to_hwp_units(0.8));
@@ -94,7 +94,7 @@ fn test_predefined_margins() {
 
     // Test narrow margins
     writer.set_narrow_margins();
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     let narrow_margins = PageMargins::narrow();
     assert_eq!(layout.margins.left, narrow_margins.left);
     assert_eq!(layout.margins.right, narrow_margins.right);
@@ -103,14 +103,14 @@ fn test_predefined_margins() {
 
     // Test normal margins
     writer.set_normal_margins();
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     let normal_margins = PageMargins::normal();
     assert_eq!(layout.margins.left, normal_margins.left);
     assert_eq!(layout.margins.right, normal_margins.right);
 
     // Test wide margins
     writer.set_wide_margins();
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     let wide_margins = PageMargins::wide();
     assert_eq!(layout.margins.left, wide_margins.left);
     assert_eq!(layout.margins.right, wide_margins.right);
@@ -125,7 +125,7 @@ fn test_custom_page_size() {
     // Set custom page size (300mm x 400mm)
     writer.set_custom_page_size_mm(300.0, 400.0);
 
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.paper_size, PaperSize::Custom);
     assert_eq!(layout.width, mm_to_hwp_units(300.0));
     assert_eq!(layout.height, mm_to_hwp_units(400.0));
@@ -163,7 +163,7 @@ fn test_page_background_color() {
     let blue_color = 0xE6F3FF;
     writer.set_page_background_color(blue_color);
 
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.background_color, Some(blue_color));
 }
 
@@ -264,7 +264,7 @@ fn test_complex_page_layout() {
     writer.add_paragraph("This text should appear in a 2-column layout on A3 landscape paper with custom margins and a light gray background.").unwrap();
 
     // Verify layout
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.paper_size, PaperSize::A3);
     assert_eq!(layout.orientation, PageOrientation::Landscape);
     assert_eq!(layout.columns, 2);
@@ -368,7 +368,7 @@ fn test_mixed_document_with_page_layout() {
     assert!(!section.paragraphs.is_empty());
 
     // Verify page layout
-    let layout = writer.get_page_layout();
+    let layout = writer.get_page_layout().expect("Layout should be set");
     assert_eq!(layout.paper_size, PaperSize::Letter);
     assert_eq!(layout.orientation, PageOrientation::Portrait);
     assert_eq!(layout.columns, 1);
