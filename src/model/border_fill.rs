@@ -161,8 +161,8 @@ impl BorderFill {
     /// Create a border fill with actual border lines
     pub fn new_with_border() -> Self {
         let border = BorderLine {
-            line_type: 1, // Solid line
-            thickness: 20, // 0.1mm thickness
+            line_type: 1,    // Solid line
+            thickness: 20,   // 0.1mm thickness
             color: 0x000000, // Black
         };
 

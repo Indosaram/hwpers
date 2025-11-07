@@ -87,8 +87,8 @@ impl HwpWriter {
 
     /// Add a paragraph with custom text style
     pub fn add_paragraph_with_style(&mut self, text: &str, style: &style::TextStyle) -> Result<()> {
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
-        
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
+
         let para_text = ParaText {
             content: text.to_string(),
         };
@@ -151,21 +151,23 @@ impl HwpWriter {
     /// Add a simple table from 2D string array
     pub fn add_simple_table(&mut self, data: &[Vec<&str>]) -> Result<()> {
         if data.is_empty() {
-            return Err(HwpError::InvalidInput("Table data cannot be empty".to_string()));
+            return Err(HwpError::InvalidInput(
+                "Table data cannot be empty".to_string(),
+            ));
         }
-        
+
         let rows = data.len() as u32;
         let cols = data[0].len() as u32;
-        
+
         // Create table builder and populate with data
         let mut table_builder = style::TableBuilder::new(self, rows, cols);
-        
+
         for (row_idx, row) in data.iter().enumerate() {
             for (col_idx, cell_text) in row.iter().enumerate() {
                 table_builder = table_builder.set_cell(row_idx as u32, col_idx as u32, cell_text);
             }
         }
-        
+
         table_builder.finish()
     }
 
@@ -197,14 +199,17 @@ impl HwpWriter {
     pub fn add_list_item(&mut self, text: &str) -> Result<()> {
         if let Some(list_type) = &self.current_list_type {
             self.current_list_index += 1;
-            let prefix = self.get_list_prefix(list_type, self.current_list_index, self.current_list_level);
+            let prefix =
+                self.get_list_prefix(list_type, self.current_list_index, self.current_list_level);
             let full_text = format!("{} {}", prefix, text);
-            
+
             // Create a list style with appropriate indentation
             let list_style = style::TextStyle::new(); // Could add indentation styling here
             self.add_paragraph_with_style(&full_text, &list_style)?;
         } else {
-            return Err(HwpError::InvalidInput("No active list. Call start_list() first.".to_string()));
+            return Err(HwpError::InvalidInput(
+                "No active list. Call start_list() first.".to_string(),
+            ));
         }
         Ok(())
     }
@@ -212,7 +217,12 @@ impl HwpWriter {
     /// Start a nested list
     pub fn start_nested_list(&mut self, list_type: style::ListType) -> Result<()> {
         self.current_list_level += 1;
-        self.list_stack.push((self.current_list_type.clone().unwrap_or(style::ListType::Bullet), self.current_list_index));
+        self.list_stack.push((
+            self.current_list_type
+                .clone()
+                .unwrap_or(style::ListType::Bullet),
+            self.current_list_index,
+        ));
         self.current_list_type = Some(list_type);
         self.current_list_index = 0;
         Ok(())
@@ -242,7 +252,7 @@ impl HwpWriter {
             style::ListType::Bullet => {
                 let symbol = match level {
                     0 => "•",
-                    1 => "◦", 
+                    1 => "◦",
                     _ => "▪",
                 };
                 format!("{}{}", indent, symbol)
@@ -258,7 +268,9 @@ impl HwpWriter {
             }
             style::ListType::Korean => {
                 let korean_nums = ["가", "나", "다", "라", "마", "바", "사", "아", "자", "차"];
-                let korean = korean_nums.get((index - 1) as usize % korean_nums.len()).unwrap_or(&"가");
+                let korean = korean_nums
+                    .get((index - 1) as usize % korean_nums.len())
+                    .unwrap_or(&"가");
                 format!("{}{}).", indent, korean)
             }
             style::ListType::Custom(format) => format!("{}{}", indent, format),
@@ -268,8 +280,10 @@ impl HwpWriter {
     /// Convert number to Roman numerals
     fn to_roman(&self, mut num: u32) -> String {
         let values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
-        let symbols = ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"];
-        
+        let symbols = [
+            "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I",
+        ];
+
         let mut result = String::new();
         for (i, &value) in values.iter().enumerate() {
             while num >= value {
@@ -295,10 +309,15 @@ impl HwpWriter {
     }
 
     /// Add an image with custom options
-    pub fn add_image_with_options(&mut self, data: &[u8], format: style::ImageFormat, options: &style::ImageOptions) -> Result<()> {
-        use crate::model::control::Picture;
-        use crate::model::ctrl_header::{CtrlHeader, ControlType};
+    pub fn add_image_with_options(
+        &mut self,
+        data: &[u8],
+        format: style::ImageFormat,
+        options: &style::ImageOptions,
+    ) -> Result<()> {
         use crate::model::bin_data::BinData;
+        use crate::model::control::Picture;
+        use crate::model::ctrl_header::{ControlType, CtrlHeader};
 
         // Create binary data entry
         let bin_data = BinData {
@@ -379,15 +398,15 @@ impl HwpWriter {
 
     /// Add a hyperlink to URL
     pub fn add_hyperlink(&mut self, display_text: &str, url: &str) -> Result<()> {
-        use crate::model::hyperlink::{Hyperlink, HyperlinkType, HyperlinkDisplay};
-        
+        use crate::model::hyperlink::{Hyperlink, HyperlinkDisplay, HyperlinkType};
+
         let hyperlink = Hyperlink {
             hyperlink_type: HyperlinkType::Url,
             display_text: display_text.to_string(),
             target_url: url.to_string(),
             tooltip: None,
             display_mode: HyperlinkDisplay::TextOnly,
-            text_color: 0x0000FF, // Blue
+            text_color: 0x0000FF,    // Blue
             visited_color: 0x800080, // Purple
             underline: true,
             visited: false,
@@ -395,14 +414,14 @@ impl HwpWriter {
             start_position: 0,
             length: display_text.len() as u32,
         };
-        
+
         self.add_hyperlink_with_options(hyperlink)
     }
 
     /// Add an email hyperlink
     pub fn add_email_link(&mut self, display_text: &str, email: &str) -> Result<()> {
-        use crate::model::hyperlink::{Hyperlink, HyperlinkType, HyperlinkDisplay};
-        
+        use crate::model::hyperlink::{Hyperlink, HyperlinkDisplay, HyperlinkType};
+
         let hyperlink = Hyperlink {
             hyperlink_type: HyperlinkType::Email,
             display_text: display_text.to_string(),
@@ -417,14 +436,14 @@ impl HwpWriter {
             start_position: 0,
             length: display_text.len() as u32,
         };
-        
+
         self.add_hyperlink_with_options(hyperlink)
     }
 
     /// Add a file hyperlink
     pub fn add_file_link(&mut self, display_text: &str, file_path: &str) -> Result<()> {
-        use crate::model::hyperlink::{Hyperlink, HyperlinkType, HyperlinkDisplay};
-        
+        use crate::model::hyperlink::{Hyperlink, HyperlinkDisplay, HyperlinkType};
+
         let hyperlink = Hyperlink {
             hyperlink_type: HyperlinkType::File,
             display_text: display_text.to_string(),
@@ -439,19 +458,22 @@ impl HwpWriter {
             start_position: 0,
             length: display_text.len() as u32,
         };
-        
+
         self.add_hyperlink_with_options(hyperlink)
     }
 
     /// Add a hyperlink with custom options
-    pub fn add_hyperlink_with_options(&mut self, hyperlink: crate::model::hyperlink::Hyperlink) -> Result<()> {
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
-        
+    pub fn add_hyperlink_with_options(
+        &mut self,
+        hyperlink: crate::model::hyperlink::Hyperlink,
+    ) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
+
         // Create a styled paragraph for the hyperlink
         let hyperlink_style = style::TextStyle::new()
             .color(hyperlink.text_color)
             .underline();
-            
+
         let para_text = ParaText {
             content: hyperlink.display_text.clone(),
         };
@@ -500,8 +522,8 @@ impl HwpWriter {
 
     /// Add a bookmark hyperlink
     pub fn add_bookmark_link(&mut self, display_text: &str, bookmark_name: &str) -> Result<()> {
-        use crate::model::hyperlink::{Hyperlink, HyperlinkType, HyperlinkDisplay};
-        
+        use crate::model::hyperlink::{Hyperlink, HyperlinkDisplay, HyperlinkType};
+
         let hyperlink = Hyperlink {
             hyperlink_type: HyperlinkType::Bookmark,
             display_text: display_text.to_string(),
@@ -516,11 +538,12 @@ impl HwpWriter {
             start_position: 0,
             length: display_text.len() as u32,
         };
-        
+
         self.add_hyperlink_with_options(hyperlink)
     }
 
     /// Add a custom hyperlink with specific options
+    #[allow(clippy::too_many_arguments)]
     pub fn add_custom_hyperlink(
         &mut self,
         display_text: &str,
@@ -532,7 +555,7 @@ impl HwpWriter {
         new_window: bool,
     ) -> Result<()> {
         use crate::model::hyperlink::Hyperlink;
-        
+
         let hyperlink = Hyperlink {
             hyperlink_type,
             display_text: display_text.to_string(),
@@ -547,14 +570,18 @@ impl HwpWriter {
             start_position: 0,
             length: display_text.len() as u32,
         };
-        
+
         self.add_hyperlink_with_options(hyperlink)
     }
 
     /// Add a paragraph with multiple hyperlinks
-    pub fn add_paragraph_with_hyperlinks(&mut self, text: &str, hyperlinks: Vec<crate::model::hyperlink::Hyperlink>) -> Result<()> {
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
-        
+    pub fn add_paragraph_with_hyperlinks(
+        &mut self,
+        text: &str,
+        hyperlinks: Vec<crate::model::hyperlink::Hyperlink>,
+    ) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
+
         let para_text = ParaText {
             content: text.to_string(),
         };
@@ -605,7 +632,7 @@ impl HwpWriter {
     /// Add a header to the current section
     pub fn add_header(&mut self, text: &str) {
         use crate::model::header_footer::HeaderFooter;
-        
+
         // Create header footer collection if not exists
         if let Some(body_text) = self.document.body_texts.get_mut(self.current_section_idx) {
             if let Some(section) = body_text.sections.get_mut(0) {
@@ -621,9 +648,13 @@ impl HwpWriter {
     }
 
     /// Add a footer with page number
-    pub fn add_footer_with_page_number(&mut self, prefix: &str, format: crate::model::header_footer::PageNumberFormat) {
+    pub fn add_footer_with_page_number(
+        &mut self,
+        prefix: &str,
+        format: crate::model::header_footer::PageNumberFormat,
+    ) {
         use crate::model::header_footer::HeaderFooter;
-        
+
         if let Some(body_text) = self.document.body_texts.get_mut(self.current_section_idx) {
             if let Some(section) = body_text.sections.get_mut(0) {
                 if section.page_def.is_none() {
@@ -641,17 +672,17 @@ impl HwpWriter {
     /// Set page layout for the document
     pub fn set_page_layout(&mut self, layout: crate::model::page_layout::PageLayout) -> Result<()> {
         use crate::model::page_def::PageDef;
-        
+
         // Create page definition from layout
         let page_def = PageDef::from_layout(layout);
-        
+
         // Apply to current section
         if let Some(body_text) = self.document.body_texts.get_mut(self.current_section_idx) {
             if let Some(section) = body_text.sections.get_mut(0) {
                 section.page_def = Some(page_def);
             }
         }
-        
+
         Ok(())
     }
 
@@ -660,26 +691,30 @@ impl HwpWriter {
         let layout = crate::model::page_layout::PageLayout::a4_portrait();
         self.set_page_layout(layout)
     }
-    
+
     /// Add a paragraph with specific alignment
-    pub fn add_aligned_paragraph(&mut self, text: &str, alignment: style::ParagraphAlignment) -> Result<()> {
+    pub fn add_aligned_paragraph(
+        &mut self,
+        text: &str,
+        alignment: style::ParagraphAlignment,
+    ) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
         use crate::model::para_shape::ParaShape;
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
-        
+
         // Create para shape with alignment
         let mut para_shape = ParaShape::new_default();
         // Set alignment in properties1 (bits 2-4)
         para_shape.properties1 = (para_shape.properties1 & !0x1C) | ((alignment as u32) << 2);
         let para_shape_id = self.add_para_shape(para_shape)?;
-        
+
         let para_text = ParaText {
             content: text.to_string(),
         };
-        
+
         // Create character shape
         let char_shape = style::TextStyle::new().to_char_shape(0);
         let char_shape_id = self.add_char_shape(char_shape)?;
-        
+
         // Create character shape information
         let char_shapes = ParaCharShape {
             char_positions: vec![CharPositionShape {
@@ -687,7 +722,7 @@ impl HwpWriter {
                 char_shape_id,
             }],
         };
-        
+
         // Create paragraph with alignment
         let paragraph = Paragraph {
             text: Some(para_text),
@@ -708,37 +743,43 @@ impl HwpWriter {
             text_box_data: None,
             hyperlinks: Vec::new(),
         };
-        
+
         // Add the paragraph to the document
         if let Some(body_text) = self.document.body_texts.get_mut(self.current_section_idx) {
             if let Some(section) = body_text.sections.get_mut(0) {
                 section.paragraphs.push(paragraph);
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Add a paragraph with custom spacing
-    pub fn add_paragraph_with_spacing(&mut self, text: &str, line_spacing_percent: u32, before_spacing_mm: f32, after_spacing_mm: f32) -> Result<()> {
+    pub fn add_paragraph_with_spacing(
+        &mut self,
+        text: &str,
+        line_spacing_percent: u32,
+        before_spacing_mm: f32,
+        after_spacing_mm: f32,
+    ) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
         use crate::model::para_shape::ParaShape;
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
-        
+
         // Create para shape with spacing
         let mut para_shape = ParaShape::new_default();
         para_shape.line_space = (line_spacing_percent * 100) as i32; // Convert percent to internal units
         para_shape.top_para_space = (before_spacing_mm * 283.465) as i32; // Convert mm to HWP units
         para_shape.bottom_para_space = (after_spacing_mm * 283.465) as i32;
         let para_shape_id = self.add_para_shape(para_shape)?;
-        
+
         let para_text = ParaText {
             content: text.to_string(),
         };
-        
+
         // Create character shape
         let char_shape = style::TextStyle::new().to_char_shape(0);
         let char_shape_id = self.add_char_shape(char_shape)?;
-        
+
         // Create character shape information
         let char_shapes = ParaCharShape {
             char_positions: vec![CharPositionShape {
@@ -746,7 +787,7 @@ impl HwpWriter {
                 char_shape_id,
             }],
         };
-        
+
         // Create paragraph with spacing
         let paragraph = Paragraph {
             text: Some(para_text),
@@ -767,14 +808,14 @@ impl HwpWriter {
             text_box_data: None,
             hyperlinks: Vec::new(),
         };
-        
+
         // Add the paragraph to the document
         if let Some(body_text) = self.document.body_texts.get_mut(self.current_section_idx) {
             if let Some(section) = body_text.sections.get_mut(0) {
                 section.paragraphs.push(paragraph);
             }
         }
-        
+
         Ok(())
     }
 
@@ -797,40 +838,60 @@ impl HwpWriter {
     }
 
     /// Set custom page size in millimeters
-    pub fn set_custom_page_size(&mut self, width_mm: f32, height_mm: f32, orientation: crate::model::page_layout::PageOrientation) -> Result<()> {
-        let layout = crate::model::page_layout::PageLayout::custom_mm(width_mm, height_mm, orientation);
+    pub fn set_custom_page_size(
+        &mut self,
+        width_mm: f32,
+        height_mm: f32,
+        orientation: crate::model::page_layout::PageOrientation,
+    ) -> Result<()> {
+        let layout =
+            crate::model::page_layout::PageLayout::custom_mm(width_mm, height_mm, orientation);
         self.set_page_layout(layout)
     }
 
     /// Set page margins in millimeters
-    pub fn set_page_margins_mm(&mut self, left: f32, right: f32, top: f32, bottom: f32) -> Result<()> {
+    pub fn set_page_margins_mm(
+        &mut self,
+        left: f32,
+        right: f32,
+        top: f32,
+        bottom: f32,
+    ) -> Result<()> {
         let margins = crate::model::page_layout::PageMargins::new_mm(left, right, top, bottom);
-        let mut layout = crate::model::page_layout::PageLayout::default();
-        layout.margins = margins;
+        let layout = crate::model::page_layout::PageLayout {
+            margins,
+            ..Default::default()
+        };
         self.set_page_layout(layout)
     }
 
     /// Set narrow margins (Office style)
     pub fn set_narrow_margins(&mut self) -> Result<()> {
         let margins = crate::model::page_layout::PageMargins::narrow();
-        let mut layout = crate::model::page_layout::PageLayout::default();
-        layout.margins = margins;
+        let layout = crate::model::page_layout::PageLayout {
+            margins,
+            ..Default::default()
+        };
         self.set_page_layout(layout)
     }
 
     /// Set normal margins (Office style)
     pub fn set_normal_margins(&mut self) -> Result<()> {
         let margins = crate::model::page_layout::PageMargins::normal();
-        let mut layout = crate::model::page_layout::PageLayout::default();
-        layout.margins = margins;
+        let layout = crate::model::page_layout::PageLayout {
+            margins,
+            ..Default::default()
+        };
         self.set_page_layout(layout)
     }
 
     /// Set wide margins (Office style)
     pub fn set_wide_margins(&mut self) -> Result<()> {
         let margins = crate::model::page_layout::PageMargins::wide();
-        let mut layout = crate::model::page_layout::PageLayout::default();
-        layout.margins = margins;
+        let layout = crate::model::page_layout::PageLayout {
+            margins,
+            ..Default::default()
+        };
         self.set_page_layout(layout)
     }
 
@@ -849,7 +910,11 @@ impl HwpWriter {
     }
 
     /// Set page numbering
-    pub fn set_page_numbering(&mut self, start: u16, format: crate::model::header_footer::PageNumberFormat) -> Result<()> {
+    pub fn set_page_numbering(
+        &mut self,
+        start: u16,
+        format: crate::model::header_footer::PageNumberFormat,
+    ) -> Result<()> {
         let mut layout = crate::model::page_layout::PageLayout::default();
         layout = layout.with_page_numbering(start, format);
         self.set_page_layout(layout)
@@ -905,7 +970,6 @@ impl HwpWriter {
         }
     }
 
-
     /// Generate and return next unique instance ID
     pub fn next_instance_id(&mut self) -> u32 {
         let id = self.next_instance_id;
@@ -921,7 +985,7 @@ impl HwpWriter {
                 return Ok(i as u16);
             }
         }
-        
+
         // Add new font
         let face_name = FaceName::new_default(font_name.to_string());
         self.document.doc_info.face_names.push(face_name);
@@ -933,13 +997,15 @@ impl HwpWriter {
         self.document.doc_info.char_shapes.push(char_shape);
         Ok((self.document.doc_info.char_shapes.len() - 1) as u16)
     }
-    
+
     /// Add a paragraph shape to the document and return its ID
-    pub fn add_para_shape(&mut self, para_shape: crate::model::para_shape::ParaShape) -> Result<u16> {
+    pub fn add_para_shape(
+        &mut self,
+        para_shape: crate::model::para_shape::ParaShape,
+    ) -> Result<u16> {
         self.document.doc_info.para_shapes.push(para_shape);
         Ok((self.document.doc_info.para_shapes.len() - 1) as u16)
     }
-
 }
 
 impl HwpWriter {

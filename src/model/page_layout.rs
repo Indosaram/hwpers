@@ -1,4 +1,3 @@
-
 /// 페이지 방향
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PageOrientation {
@@ -94,7 +93,6 @@ pub struct PageLayout {
     pub page_number_format: crate::model::header_footer::PageNumberFormat,
 }
 
-
 impl Default for PageMargins {
     fn default() -> Self {
         Self {
@@ -133,15 +131,15 @@ impl PaperSize {
     /// 용지 크기의 기본 치수를 HWP 단위로 반환 (세로 방향 기준)
     pub fn dimensions_hwp_units(&self) -> (u32, u32) {
         match self {
-            PaperSize::A4 => (59528, 84188),      // 210 × 297 mm
-            PaperSize::A3 => (84188, 119055),     // 297 × 420 mm
-            PaperSize::A5 => (41929, 59528),      // 148 × 210 mm
-            PaperSize::Letter => (61200, 79200),  // 8.5 × 11 inch
-            PaperSize::Legal => (61200, 100800),  // 8.5 × 14 inch
+            PaperSize::A4 => (59528, 84188),       // 210 × 297 mm
+            PaperSize::A3 => (84188, 119055),      // 297 × 420 mm
+            PaperSize::A5 => (41929, 59528),       // 148 × 210 mm
+            PaperSize::Letter => (61200, 79200),   // 8.5 × 11 inch
+            PaperSize::Legal => (61200, 100800),   // 8.5 × 14 inch
             PaperSize::Tabloid => (79200, 122400), // 11 × 17 inch
-            PaperSize::B4 => (70866, 100063),     // 250 × 353 mm
-            PaperSize::B5 => (49606, 70866),      // 176 × 250 mm
-            PaperSize::Custom => (59528, 84188),  // Default to A4
+            PaperSize::B4 => (70866, 100063),      // 250 × 353 mm
+            PaperSize::B5 => (49606, 70866),       // 176 × 250 mm
+            PaperSize::Custom => (59528, 84188),   // Default to A4
         }
     }
 
@@ -307,7 +305,11 @@ impl PageLayout {
     }
 
     /// 페이지 번호 설정
-    pub fn with_page_numbering(mut self, start: u16, format: crate::model::header_footer::PageNumberFormat) -> Self {
+    pub fn with_page_numbering(
+        mut self,
+        start: u16,
+        format: crate::model::header_footer::PageNumberFormat,
+    ) -> Self {
         self.start_page_number = start;
         self.page_number_format = format;
         self
@@ -359,19 +361,31 @@ impl PageLayout {
         // 기본 페이지 정보
         writer.write_u32::<LittleEndian>(self.width).unwrap();
         writer.write_u32::<LittleEndian>(self.height).unwrap();
-        
+
         // 여백 정보
         writer.write_u32::<LittleEndian>(self.margins.left).unwrap();
-        writer.write_u32::<LittleEndian>(self.margins.right).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.margins.right)
+            .unwrap();
         writer.write_u32::<LittleEndian>(self.margins.top).unwrap();
-        writer.write_u32::<LittleEndian>(self.margins.bottom).unwrap();
-        writer.write_u32::<LittleEndian>(self.margins.header).unwrap();
-        writer.write_u32::<LittleEndian>(self.margins.footer).unwrap();
-        writer.write_u32::<LittleEndian>(self.margins.gutter).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.margins.bottom)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.margins.header)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.margins.footer)
+            .unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.margins.gutter)
+            .unwrap();
 
         // 다단 설정
         writer.write_u16::<LittleEndian>(self.columns).unwrap();
-        writer.write_u32::<LittleEndian>(self.column_spacing).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.column_spacing)
+            .unwrap();
 
         // 페이지 속성
         let mut properties = 0u32;
@@ -390,7 +404,9 @@ impl PageLayout {
         writer.write_u32::<LittleEndian>(properties).unwrap();
 
         // 페이지 번호 설정
-        writer.write_u16::<LittleEndian>(self.start_page_number).unwrap();
+        writer
+            .write_u16::<LittleEndian>(self.start_page_number)
+            .unwrap();
         writer.write_u8(self.page_number_format as u8).unwrap();
 
         // 배경색 (선택사항)

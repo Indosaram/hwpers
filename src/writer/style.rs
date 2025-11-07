@@ -85,7 +85,7 @@ impl TextStyle {
     /// Convert to CharShape for internal use
     pub(crate) fn to_char_shape(&self, face_name_id: u16) -> CharShape {
         let mut properties = 0u32;
-        
+
         if self.bold {
             properties |= 1 << 0; // Bit 0: Bold
         }
@@ -135,8 +135,8 @@ impl Default for HeadingStyle {
         Self {
             numbering: false,
             alignment: TextAlign::Left,
-            spacing_before: 300,  // 3pt before
-            spacing_after: 200,   // 2pt after
+            spacing_before: 300, // 3pt before
+            spacing_after: 200,  // 2pt after
             text_style: TextStyle::default(),
         }
     }
@@ -283,7 +283,7 @@ pub enum CellAlign {
 }
 
 /// Border style for individual table cells
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CellBorderStyle {
     pub left: BorderLineStyle,
     pub right: BorderLineStyle,
@@ -310,17 +310,6 @@ pub enum BorderLineType {
     Thick = 5,
 }
 
-impl Default for CellBorderStyle {
-    fn default() -> Self {
-        Self {
-            left: BorderLineStyle::default(),
-            right: BorderLineStyle::default(),
-            top: BorderLineStyle::default(),
-            bottom: BorderLineStyle::default(),
-        }
-    }
-}
-
 impl Default for BorderLineStyle {
     fn default() -> Self {
         Self {
@@ -339,7 +328,7 @@ impl BorderLineStyle {
             color,
         }
     }
-    
+
     pub fn none() -> Self {
         Self {
             line_type: BorderLineType::None,
@@ -347,7 +336,7 @@ impl BorderLineStyle {
             color: 0,
         }
     }
-    
+
     pub fn solid(thickness: u8) -> Self {
         Self {
             line_type: BorderLineType::Solid,
@@ -355,7 +344,7 @@ impl BorderLineStyle {
             color: 0x000000,
         }
     }
-    
+
     pub fn dashed(thickness: u8) -> Self {
         Self {
             line_type: BorderLineType::Dashed,
@@ -363,7 +352,7 @@ impl BorderLineStyle {
             color: 0x000000,
         }
     }
-    
+
     pub fn with_color(mut self, color: u32) -> Self {
         self.color = color;
         self
@@ -383,7 +372,7 @@ impl CellBorderStyle {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn all_borders(style: BorderLineStyle) -> Self {
         Self {
             left: style.clone(),
@@ -392,7 +381,7 @@ impl CellBorderStyle {
             bottom: style,
         }
     }
-    
+
     pub fn no_borders() -> Self {
         let none_style = BorderLineStyle::none();
         Self {
@@ -402,7 +391,7 @@ impl CellBorderStyle {
             bottom: none_style,
         }
     }
-    
+
     pub fn outer_borders() -> Self {
         Self {
             left: BorderLineStyle::solid(1),
@@ -411,22 +400,22 @@ impl CellBorderStyle {
             bottom: BorderLineStyle::solid(1),
         }
     }
-    
+
     pub fn set_left(mut self, style: BorderLineStyle) -> Self {
         self.left = style;
         self
     }
-    
+
     pub fn set_right(mut self, style: BorderLineStyle) -> Self {
         self.right = style;
         self
     }
-    
+
     pub fn set_top(mut self, style: BorderLineStyle) -> Self {
         self.top = style;
         self
     }
-    
+
     pub fn set_bottom(mut self, style: BorderLineStyle) -> Self {
         self.bottom = style;
         self
@@ -435,7 +424,7 @@ impl CellBorderStyle {
     /// Convert to HWP BorderFill format
     pub fn to_border_fill(&self) -> crate::model::border_fill::BorderFill {
         use crate::model::border_fill::{BorderFill, FillInfo};
-        
+
         BorderFill {
             properties: 0,
             left: self.left.to_border_line(),
@@ -510,19 +499,33 @@ impl<'a> TableBuilder<'a> {
     }
 
     /// Merge cells horizontally or vertically
-    pub fn merge_cells(mut self, start_row: u32, start_col: u32, row_span: u16, col_span: u16) -> Self {
-        self.merged_cells.insert((start_row, start_col), (row_span, col_span));
+    pub fn merge_cells(
+        mut self,
+        start_row: u32,
+        start_col: u32,
+        row_span: u16,
+        col_span: u16,
+    ) -> Self {
+        self.merged_cells
+            .insert((start_row, start_col), (row_span, col_span));
         self
     }
-    
+
     /// Set border style for a specific cell
     pub fn set_cell_border(mut self, row: u32, col: u32, border_style: CellBorderStyle) -> Self {
         self.cell_borders.insert((row, col), border_style);
         self
     }
-    
+
     /// Set border style for a range of cells
-    pub fn set_range_border(mut self, start_row: u32, start_col: u32, end_row: u32, end_col: u32, border_style: CellBorderStyle) -> Self {
+    pub fn set_range_border(
+        mut self,
+        start_row: u32,
+        start_col: u32,
+        end_row: u32,
+        end_col: u32,
+        border_style: CellBorderStyle,
+    ) -> Self {
         for row in start_row..=end_row {
             for col in start_col..=end_col {
                 self.cell_borders.insert((row, col), border_style.clone());
@@ -530,13 +533,17 @@ impl<'a> TableBuilder<'a> {
         }
         self
     }
-    
+
     /// Set outer borders for the entire table
     pub fn set_outer_borders(mut self, border_style: BorderLineStyle) -> Self {
         for row in 0..self.rows {
             for col in 0..self.cols {
-                let mut cell_border = self.cell_borders.get(&(row, col)).cloned().unwrap_or_default();
-                
+                let mut cell_border = self
+                    .cell_borders
+                    .get(&(row, col))
+                    .cloned()
+                    .unwrap_or_default();
+
                 // Set outer borders
                 if row == 0 {
                     cell_border.top = border_style.clone();
@@ -550,19 +557,23 @@ impl<'a> TableBuilder<'a> {
                 if col == self.cols - 1 {
                     cell_border.right = border_style.clone();
                 }
-                
+
                 self.cell_borders.insert((row, col), cell_border);
             }
         }
         self
     }
-    
+
     /// Set inner borders for the table (between cells)
     pub fn set_inner_borders(mut self, border_style: BorderLineStyle) -> Self {
         for row in 0..self.rows {
             for col in 0..self.cols {
-                let mut cell_border = self.cell_borders.get(&(row, col)).cloned().unwrap_or_default();
-                
+                let mut cell_border = self
+                    .cell_borders
+                    .get(&(row, col))
+                    .cloned()
+                    .unwrap_or_default();
+
                 // Set inner borders (except outer edges)
                 if row > 0 {
                     cell_border.top = border_style.clone();
@@ -576,19 +587,19 @@ impl<'a> TableBuilder<'a> {
                 if col < self.cols - 1 {
                     cell_border.right = border_style.clone();
                 }
-                
+
                 self.cell_borders.insert((row, col), cell_border);
             }
         }
         self
     }
-    
+
     /// Set all borders (both inner and outer)
     pub fn set_all_borders(self, border_style: BorderLineStyle) -> Self {
         self.set_outer_borders(border_style.clone())
             .set_inner_borders(border_style)
     }
-    
+
     /// Remove all borders from the table
     pub fn no_borders(mut self) -> Self {
         let no_border = CellBorderStyle::no_borders();
@@ -604,65 +615,69 @@ impl<'a> TableBuilder<'a> {
     pub fn finish(self) -> crate::error::Result<()> {
         use crate::model::{
             control::Table,
-            ctrl_header::{CtrlHeader, ControlType},
-            paragraph::{Paragraph, ParaText},
-            para_char_shape::{ParaCharShape, CharPositionShape},
+            ctrl_header::{ControlType, CtrlHeader},
+            para_char_shape::{CharPositionShape, ParaCharShape},
+            paragraph::{ParaText, Paragraph},
         };
-        
+
         // Calculate dimensions (using HWP units: 1mm = ~100 units)
         let col_width = 5000u32; // 50mm per column
         let row_height = 1000u32; // 10mm per row
-        
+
         // Create the table structure first
         let mut table = Table::new_default(self.rows as u16, self.cols as u16);
-        
+
         // Create border fills for each unique cell border style
         let mut border_fill_map = std::collections::HashMap::new();
         let mut next_border_fill_id = 1u16;
-        
+
         // Create cell paragraphs and link them to table cells
         let mut cell_paragraphs = Vec::new();
         let mut paragraph_list_counter = 0u32;
-        
+
         for (row_idx, row) in self.cells.iter().enumerate() {
             for (col_idx, cell_text) in row.iter().enumerate() {
                 let row = row_idx as u16;
                 let col = col_idx as u16;
                 let cell_key = (row_idx as u32, col_idx as u32);
-                
+
                 // Check if this cell is part of a merged cell
                 let mut is_merged_target = false;
-                let (row_span, col_span) = if let Some(&(rs, cs)) = self.merged_cells.get(&cell_key) {
+                let (row_span, col_span) = if let Some(&(rs, cs)) = self.merged_cells.get(&cell_key)
+                {
                     (rs, cs)
                 } else {
                     // Check if this cell is covered by another merged cell
                     for (&(merge_row, merge_col), &(rs, cs)) in &self.merged_cells {
-                        if (row_idx as u32 >= merge_row) && ((row_idx as u32) < merge_row + rs as u32) &&
-                           (col_idx as u32 >= merge_col) && ((col_idx as u32) < merge_col + cs as u32) &&
-                           (row_idx as u32 != merge_row || col_idx as u32 != merge_col) {
+                        if (row_idx as u32 >= merge_row)
+                            && ((row_idx as u32) < merge_row + rs as u32)
+                            && (col_idx as u32 >= merge_col)
+                            && ((col_idx as u32) < merge_col + cs as u32)
+                            && (row_idx as u32 != merge_row || col_idx as u32 != merge_col)
+                        {
                             is_merged_target = true;
                             break;
                         }
                     }
                     (1, 1) // Default: no merge
                 };
-                
+
                 // Skip cells that are covered by merged cells
                 if is_merged_target {
                     continue;
                 }
-                
+
                 // Get or create border fill for this cell
                 let border_fill_id = if let Some(cell_border) = self.cell_borders.get(&cell_key) {
                     let border_fill = cell_border.to_border_fill();
                     let border_key = format!("{:?}", border_fill);
-                    
+
                     if let Some(&existing_id) = border_fill_map.get(&border_key) {
                         existing_id
                     } else {
                         let new_id = next_border_fill_id;
                         next_border_fill_id += 1;
-                        
+
                         // Add the border fill to the document
                         self.writer.document.doc_info.border_fills.push(border_fill);
                         border_fill_map.insert(border_key, new_id);
@@ -671,21 +686,26 @@ impl<'a> TableBuilder<'a> {
                 } else {
                     0 // Default border fill
                 };
-                
+
                 // Create and add table cell with proper addressing and merge info
-                let cell = table.create_cell(row, col, col_width * col_span as u32, row_height * row_span as u32);
+                let cell = table.create_cell(
+                    row,
+                    col,
+                    col_width * col_span as u32,
+                    row_height * row_span as u32,
+                );
                 cell.list_header_id = paragraph_list_counter;
                 cell.paragraph_list_id = Some(paragraph_list_counter);
                 cell.row_span = row_span;
                 cell.col_span = col_span;
                 cell.border_fill_id = border_fill_id;
                 paragraph_list_counter += 1;
-                
+
                 // Create paragraph for cell content
                 let para_text = ParaText {
                     content: cell_text.clone(),
                 };
-                
+
                 // Use header style for first row if header is enabled
                 let char_shape_id = if self.has_header && row_idx == 0 {
                     // Get or create bold char shape for header
@@ -703,7 +723,7 @@ impl<'a> TableBuilder<'a> {
                 } else {
                     0 // Default char shape
                 };
-                
+
                 let paragraph = Paragraph {
                     text: Some(para_text),
                     control_mask: 0,
@@ -735,14 +755,14 @@ impl<'a> TableBuilder<'a> {
                 cell_paragraphs.push(paragraph);
             }
         }
-        
+
         // Create control header for table
         let ctrl_header = CtrlHeader {
             ctrl_id: ControlType::Table as u32,
             properties: 0,
             instance_id: self.writer.next_instance_id(),
         };
-        
+
         // Create a paragraph with table control AND actual table data
         let table_paragraph = Paragraph {
             text: None,
@@ -763,16 +783,21 @@ impl<'a> TableBuilder<'a> {
             text_box_data: None,
             hyperlinks: Vec::new(),
         };
-        
+
         // Add the table paragraph to the document
-        if let Some(body_text) = self.writer.document.body_texts.get_mut(self.writer.current_section_idx) {
+        if let Some(body_text) = self
+            .writer
+            .document
+            .body_texts
+            .get_mut(self.writer.current_section_idx)
+        {
             if let Some(section) = body_text.sections.get_mut(0) {
                 section.paragraphs.push(table_paragraph);
                 // Add cell paragraphs (these are now properly linked via paragraph_list_id)
                 section.paragraphs.extend(cell_paragraphs);
             }
         }
-        
+
         Ok(())
     }
 }
@@ -796,13 +821,13 @@ impl ImageFormat {
             ImageFormat::Gif => "gif",
         }
     }
-    
+
     /// Detect format from bytes
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
         if data.len() < 4 {
             return None;
         }
-        
+
         // Check magic bytes
         match &data[0..4] {
             [0xFF, 0xD8, 0xFF, _] => Some(ImageFormat::Jpeg),
@@ -845,7 +870,7 @@ impl TextRange {
     pub fn new(start: usize, end: usize, style: TextStyle) -> Self {
         Self { start, end, style }
     }
-    
+
     /// Create a range that spans the entire text
     pub fn entire_text(text_len: usize, style: TextStyle) -> Self {
         Self {
@@ -870,13 +895,13 @@ impl StyledText {
             ranges: Vec::new(),
         }
     }
-    
+
     /// Add a styled range to the text
     pub fn add_range(mut self, start: usize, end: usize, style: TextStyle) -> Self {
         self.ranges.push(TextRange::new(start, end, style));
         self
     }
-    
+
     /// Apply style to a substring by finding its position
     pub fn style_substring(mut self, substring: &str, style: TextStyle) -> Self {
         if let Some(start) = self.text.find(substring) {
@@ -885,14 +910,15 @@ impl StyledText {
         }
         self
     }
-    
+
     /// Apply style to all occurrences of a substring
     pub fn style_all_occurrences(mut self, substring: &str, style: TextStyle) -> Self {
         let mut start_pos = 0;
         while let Some(found) = self.text[start_pos..].find(substring) {
             let absolute_start = start_pos + found;
             let absolute_end = absolute_start + substring.len();
-            self.ranges.push(TextRange::new(absolute_start, absolute_end, style.clone()));
+            self.ranges
+                .push(TextRange::new(absolute_start, absolute_end, style.clone()));
             start_pos = absolute_end;
         }
         self
@@ -915,31 +941,31 @@ impl ImageOptions {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Set image width in millimeters
     pub fn width(mut self, width_mm: u32) -> Self {
         self.width = Some(width_mm);
         self
     }
-    
+
     /// Set image height in millimeters
     pub fn height(mut self, height_mm: u32) -> Self {
         self.height = Some(height_mm);
         self
     }
-    
+
     /// Set image alignment
     pub fn align(mut self, alignment: ImageAlign) -> Self {
         self.alignment = alignment;
         self
     }
-    
+
     /// Enable text wrapping around image
     pub fn wrap_text(mut self, wrap: bool) -> Self {
         self.wrap_text = wrap;
         self
     }
-    
+
     /// Add caption to image
     pub fn caption(mut self, text: &str) -> Self {
         self.caption = Some(text.to_string());

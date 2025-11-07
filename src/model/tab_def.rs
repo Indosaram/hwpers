@@ -49,11 +49,11 @@ impl TabDef {
         for i in 1..=10 {
             tabs.push(Tab {
                 position: i * 5669, // 20mm intervals
-                tab_type: 0, // Left tab
-                leader_type: 0, // No leader
+                tab_type: 0,        // Left tab
+                leader_type: 0,     // No leader
             });
         }
-        
+
         Self {
             properties: 0,
             tabs,

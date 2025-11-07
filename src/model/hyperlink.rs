@@ -64,7 +64,7 @@ impl Default for Hyperlink {
             target_url: String::new(),
             tooltip: None,
             display_mode: HyperlinkDisplay::TextOnly,
-            text_color: 0x0000FF, // Blue
+            text_color: 0x0000FF,    // Blue
             visited_color: 0x800080, // Purple
             underline: true,
             visited: false,
@@ -94,7 +94,7 @@ impl Hyperlink {
         } else {
             format!("mailto:{}", email)
         };
-        
+
         Self {
             hyperlink_type: HyperlinkType::Email,
             display_text: display_text.to_string(),
@@ -176,8 +176,8 @@ impl Hyperlink {
 
     /// HWP 형식으로 직렬화
     pub fn to_bytes(&self) -> Vec<u8> {
-        use byteorder::{LittleEndian, WriteBytesExt};
         use crate::utils::encoding::string_to_utf16le;
+        use byteorder::{LittleEndian, WriteBytesExt};
         use std::io::{Cursor, Write};
 
         let mut data = Vec::new();
@@ -187,33 +187,49 @@ impl Hyperlink {
         writer.write_u8(self.hyperlink_type as u8).unwrap();
         writer.write_u8(self.display_mode as u8).unwrap();
         writer.write_u32::<LittleEndian>(self.text_color).unwrap();
-        writer.write_u32::<LittleEndian>(self.visited_color).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.visited_color)
+            .unwrap();
 
         // 플래그 비트 (underline, visited, new_window)
         let mut flags = 0u8;
-        if self.underline { flags |= 0x01; }
-        if self.visited { flags |= 0x02; }
-        if self.open_in_new_window { flags |= 0x04; }
+        if self.underline {
+            flags |= 0x01;
+        }
+        if self.visited {
+            flags |= 0x02;
+        }
+        if self.open_in_new_window {
+            flags |= 0x04;
+        }
         writer.write_u8(flags).unwrap();
 
         // 위치 정보
-        writer.write_u32::<LittleEndian>(self.start_position).unwrap();
+        writer
+            .write_u32::<LittleEndian>(self.start_position)
+            .unwrap();
         writer.write_u32::<LittleEndian>(self.length).unwrap();
 
         // 표시 텍스트
         let display_text_utf16 = string_to_utf16le(&self.display_text);
-        writer.write_u16::<LittleEndian>(display_text_utf16.len() as u16 / 2).unwrap();
+        writer
+            .write_u16::<LittleEndian>(display_text_utf16.len() as u16 / 2)
+            .unwrap();
         writer.write_all(&display_text_utf16).unwrap();
 
         // 대상 URL
         let target_url_utf16 = string_to_utf16le(&self.target_url);
-        writer.write_u16::<LittleEndian>(target_url_utf16.len() as u16 / 2).unwrap();
+        writer
+            .write_u16::<LittleEndian>(target_url_utf16.len() as u16 / 2)
+            .unwrap();
         writer.write_all(&target_url_utf16).unwrap();
 
         // 툴팁 (선택사항)
         if let Some(tooltip) = &self.tooltip {
             let tooltip_utf16 = string_to_utf16le(tooltip);
-            writer.write_u16::<LittleEndian>(tooltip_utf16.len() as u16 / 2).unwrap();
+            writer
+                .write_u16::<LittleEndian>(tooltip_utf16.len() as u16 / 2)
+                .unwrap();
             writer.write_all(&tooltip_utf16).unwrap();
         } else {
             writer.write_u16::<LittleEndian>(0).unwrap();
@@ -225,31 +241,35 @@ impl Hyperlink {
     /// HWP 레코드에서 파싱
     pub fn from_record(record: &Record) -> Result<Self> {
         let data = &record.data;
-        
+
         if data.len() < 70 {
-            return Err(HwpError::InvalidFormat("Record too small for hyperlink".to_string()));
+            return Err(HwpError::InvalidFormat(
+                "Record too small for hyperlink".to_string(),
+            ));
         }
-        
+
         // Based on reverse engineering analysis:
-        // 0x00-0x03: Control ID ('gsh ')  
+        // 0x00-0x03: Control ID ('gsh ')
         // 0x04-0x1B: Control header (24 bytes)
         // 0x1C-0x2F: Hyperlink properties (20 bytes)
         // 0x30+: Length-prefixed strings
-        
+
         // Skip control ID + control header
-        
+
         // Skip hyperlink properties for now and look for strings
         // From analysis, strings start around offset 0x32-0x38
         let mut offset = 48; // Jump to where strings typically start
-        
+
         if offset + 2 >= data.len() {
-            return Err(HwpError::InvalidFormat("Not enough data for hyperlink strings".to_string()));
+            return Err(HwpError::InvalidFormat(
+                "Not enough data for hyperlink strings".to_string(),
+            ));
         }
-        
+
         // Read display text length
         let display_text_len = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
         offset += 2;
-        
+
         // Read display text (UTF-16)
         let mut display_text = String::new();
         if display_text_len > 0 && offset + display_text_len * 2 <= data.len() {
@@ -264,19 +284,20 @@ impl Hyperlink {
                     utf16_chars.push(char_val);
                 }
             }
-            display_text = String::from_utf16(&utf16_chars)
-                .unwrap_or_default();
+            display_text = String::from_utf16(&utf16_chars).unwrap_or_default();
             offset += display_text_len * 2;
         }
-        
-        // Read target URL length  
+
+        // Read target URL length
         if offset + 2 >= data.len() {
-            return Err(HwpError::InvalidFormat("Not enough data for URL length".to_string()));
+            return Err(HwpError::InvalidFormat(
+                "Not enough data for URL length".to_string(),
+            ));
         }
-        
+
         let target_url_len = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
         offset += 2;
-        
+
         // Read target URL (UTF-16)
         let mut target_url = String::new();
         if target_url_len > 0 && offset + target_url_len * 2 <= data.len() {
@@ -291,8 +312,7 @@ impl Hyperlink {
                     utf16_chars.push(char_val);
                 }
             }
-            target_url = String::from_utf16(&utf16_chars)
-                .unwrap_or_default();
+            target_url = String::from_utf16(&utf16_chars).unwrap_or_default();
             offset += target_url_len * 2;
         }
 
@@ -303,7 +323,10 @@ impl Hyperlink {
             HyperlinkType::Url
         } else if target_url.starts_with("#") {
             HyperlinkType::Bookmark
-        } else if target_url.contains("\\") || target_url.starts_with("./") || target_url.starts_with("C:") {
+        } else if target_url.contains("\\")
+            || target_url.starts_with("./")
+            || target_url.starts_with("C:")
+        {
             HyperlinkType::File
         } else {
             HyperlinkType::Url
@@ -317,7 +340,8 @@ impl Hyperlink {
                 for i in 0..tooltip_len {
                     let char_offset = offset + 2 + i * 2;
                     if char_offset + 1 < data.len() {
-                        let char_val = u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
+                        let char_val =
+                            u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
                         if char_val == 0 {
                             break;
                         }
@@ -333,14 +357,14 @@ impl Hyperlink {
         };
 
         let text_length = display_text.chars().count() as u32;
-        
+
         Ok(Self {
             hyperlink_type,
             display_text,
             target_url,
             tooltip,
             display_mode: HyperlinkDisplay::TextOnly,
-            text_color: 0x0000FF, // Default blue
+            text_color: 0x0000FF,    // Default blue
             visited_color: 0x800080, // Default purple
             underline: true,
             visited: false,

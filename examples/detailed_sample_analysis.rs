@@ -1,6 +1,6 @@
 // Detailed analysis of sample.hwp focusing on specific controls
+use hwpers::parser::record::{HwpTag, Record};
 use hwpers::reader::CfbReader;
-use hwpers::parser::record::{Record, HwpTag};
 use hwpers::reader::StreamReader;
 use hwpers::utils::compression::decompress_stream;
 use std::collections::HashMap;
@@ -10,38 +10,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let file_path = "/Users/indo/Downloads/sample.hwp";
     let mut reader = CfbReader::from_file(file_path)?;
-    
+
     // Parse FileHeader
     let header_data = reader.read_stream("FileHeader")?;
     let header = hwpers::parser::header::FileHeader::parse(header_data)?;
-    
+
     // Analyze BinData (images)
     analyze_bindata(&mut reader)?;
-    
+
     // Analyze BodyText in detail
     analyze_bodytext_detailed(&mut reader, header.is_compressed())?;
-    
+
     Ok(())
 }
 
-fn analyze_bindata(reader: &mut CfbReader<std::fs::File>) -> Result<(), Box<dyn std::error::Error>> {
+fn analyze_bindata(
+    reader: &mut CfbReader<std::fs::File>,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("🖼️ BinData 분석:");
-    
+
     // List all BinData streams
     let streams = reader.list_streams();
-    let bindata_streams: Vec<_> = streams.iter()
+    let bindata_streams: Vec<_> = streams
+        .iter()
         .filter(|s| s.starts_with("/BinData/"))
         .collect();
-    
+
     if bindata_streams.is_empty() {
         println!("  BinData 스트림이 없습니다.");
         return Ok(());
     }
-    
+
     for stream_name in &bindata_streams {
         let data = reader.read_stream(&stream_name[1..])?; // Remove leading /
         println!("  {}: {} bytes", stream_name, data.len());
-        
+
         // Analyze file header
         if data.len() >= 4 {
             let magic = &data[0..4];
@@ -51,13 +54,15 @@ fn analyze_bindata(reader: &mut CfbReader<std::fs::File>) -> Result<(), Box<dyn 
                 [b'G', b'I', b'F', b'8'] => "GIF",
                 [0x42, 0x4D, ..] => "BMP",
                 _ => {
-                    println!("    매직 바이트: {:02X} {:02X} {:02X} {:02X}", 
-                             magic[0], magic[1], magic[2], magic[3]);
+                    println!(
+                        "    매직 바이트: {:02X} {:02X} {:02X} {:02X}",
+                        magic[0], magic[1], magic[2], magic[3]
+                    );
                     "Unknown"
                 }
             };
             println!("    파일 타입: {}", file_type);
-            
+
             // For JPEG, try to extract more info
             if file_type == "JPEG" {
                 analyze_jpeg(&data);
@@ -73,16 +78,16 @@ fn analyze_jpeg(data: &[u8]) {
     if data.len() < 20 {
         return;
     }
-    
+
     let mut offset = 2; // Skip SOI marker
     while offset + 4 < data.len() {
         if data[offset] != 0xFF {
             break;
         }
-        
+
         let marker = data[offset + 1];
         let segment_length = ((data[offset + 2] as u16) << 8) | (data[offset + 3] as u16);
-        
+
         match marker {
             0xE0 => println!("      JFIF 세그먼트 발견 (길이: {})", segment_length),
             0xE1 => {
@@ -100,39 +105,42 @@ fn analyze_jpeg(data: &[u8]) {
             }
             _ => {}
         }
-        
+
         offset += 2 + segment_length as usize;
-        
+
         if offset >= data.len() {
             break;
         }
     }
 }
 
-fn analyze_bodytext_detailed(reader: &mut CfbReader<std::fs::File>, is_compressed: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn analyze_bodytext_detailed(
+    reader: &mut CfbReader<std::fs::File>,
+    is_compressed: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("📄 BodyText 상세 분석:");
-    
+
     let section_data = reader.read_stream("BodyText/Section0")?;
-    
+
     // Decompress if needed
     let data = if is_compressed {
         decompress_stream(&section_data)?
     } else {
         section_data
     };
-    
+
     // Parse records
     let mut stream_reader = StreamReader::new(data);
     let mut controls = HashMap::new();
     let mut paragraph_count = 0;
-    
+
     while stream_reader.remaining() >= 8 {
         let position = stream_reader.position();
-        
+
         match Record::parse(&mut stream_reader) {
             Ok(record) => {
                 let tag = HwpTag::from_u16(record.tag_id());
-                
+
                 match tag {
                     Some(HwpTag::HeaderFooter) => {
                         analyze_header_footer_record(&record, position);
@@ -145,7 +153,8 @@ fn analyze_bodytext_detailed(reader: &mut CfbReader<std::fs::File>, is_compresse
                     }
                     Some(HwpTag::ParaHeader) => {
                         paragraph_count += 1;
-                        if paragraph_count <= 5 { // Only show first few
+                        if paragraph_count <= 5 {
+                            // Only show first few
                             analyze_para_header(&record, position);
                         }
                     }
@@ -158,7 +167,7 @@ fn analyze_bodytext_detailed(reader: &mut CfbReader<std::fs::File>, is_compresse
             Err(_) => break,
         }
     }
-    
+
     println!("\n  📊 컨트롤 요약:");
     println!("    문단 수: {}", paragraph_count);
     for (tag_id, count) in controls.iter() {
@@ -169,17 +178,17 @@ fn analyze_bodytext_detailed(reader: &mut CfbReader<std::fs::File>, is_compresse
             println!("    0x{:04X} ({}): {} 개", tag_id, tag_name, count);
         }
     }
-    
+
     Ok(())
 }
 
 fn analyze_header_footer_record(record: &Record, position: u64) {
     println!("\n  📋 HeaderFooter 레코드 at 0x{:08X}:", position);
     println!("    크기: {} bytes", record.data.len());
-    
+
     if record.data.len() >= 32 {
         let mut reader = StreamReader::new(record.data.clone());
-        
+
         // Try to parse header/footer structure
         match (|| -> Result<(), Box<dyn std::error::Error>> {
             let _unknown1 = reader.read_u32()?;
@@ -190,10 +199,13 @@ fn analyze_header_footer_record(record: &Record, position: u64) {
             let margin_top = reader.read_u32()?;
             let margin_right = reader.read_u32()?;
             let margin_bottom = reader.read_u32()?;
-            
+
             println!("      크기: {}x{} HWPU", width, height);
-            println!("      여백: L:{} T:{} R:{} B:{} HWPU", margin_left, margin_top, margin_right, margin_bottom);
-            
+            println!(
+                "      여백: L:{} T:{} R:{} B:{} HWPU",
+                margin_left, margin_top, margin_right, margin_bottom
+            );
+
             Ok(())
         })() {
             Ok(_) => {}
@@ -208,27 +220,27 @@ fn analyze_header_footer_record(record: &Record, position: u64) {
 fn analyze_table_record_detailed(record: &Record, position: u64) {
     println!("\n  📊 Table 레코드 at 0x{:08X}:", position);
     println!("    크기: {} bytes", record.data.len());
-    
+
     if !record.data.is_empty() {
         let mut reader = StreamReader::new(record.data.clone());
-        
+
         // Try to extract table properties
         match (|| -> Result<(), Box<dyn std::error::Error>> {
             if reader.remaining() >= 4 {
                 let table_flag = reader.read_u32()?;
                 println!("      테이블 플래그: 0x{:08X}", table_flag);
             }
-            
+
             if reader.remaining() >= 2 {
                 let row_count = reader.read_u16()?;
                 println!("      행 수: {}", row_count);
             }
-            
+
             if reader.remaining() >= 2 {
                 let col_count = reader.read_u16()?;
                 println!("      열 수: {}", col_count);
             }
-            
+
             Ok(())
         })() {
             Ok(_) => {}
@@ -242,20 +254,20 @@ fn analyze_table_record_detailed(record: &Record, position: u64) {
 fn analyze_picture_control(record: &Record, position: u64) {
     println!("\n  🖼️ Picture 컨트롤 at 0x{:08X}:", position);
     println!("    크기: {} bytes", record.data.len());
-    
+
     if record.data.len() >= 8 {
         let mut reader = StreamReader::new(record.data.clone());
-        
+
         match (|| -> Result<(), Box<dyn std::error::Error>> {
             let bin_id = reader.read_u16()?;
             println!("      BinData ID: {}", bin_id);
-            
+
             let _reserved = reader.read_u16()?;
             let width = reader.read_u32()?;
             let height = reader.read_u32()?;
-            
+
             println!("      크기: {}x{} HWPU", width, height);
-            
+
             Ok(())
         })() {
             Ok(_) => {}
@@ -269,22 +281,22 @@ fn analyze_picture_control(record: &Record, position: u64) {
 fn analyze_para_header(record: &Record, position: u64) {
     println!("\n  📝 ParaHeader at 0x{:08X}:", position);
     println!("    크기: {} bytes", record.data.len());
-    
+
     if record.data.len() >= 12 {
         let mut reader = StreamReader::new(record.data.clone());
-        
+
         match (|| -> Result<(), Box<dyn std::error::Error>> {
             let text_count = reader.read_u32()?;
             let control_mask = reader.read_u32()?;
             let para_shape_id = reader.read_u16()?;
             let style_id = reader.read_u8()?;
             let _div_type = reader.read_u8()?;
-            
+
             println!("      텍스트 길이: {}", text_count);
             println!("      컨트롤 마스크: 0x{:08X}", control_mask);
             println!("      문단 모양 ID: {}", para_shape_id);
             println!("      스타일 ID: {}", style_id);
-            
+
             Ok(())
         })() {
             Ok(_) => {}

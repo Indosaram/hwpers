@@ -74,23 +74,23 @@ impl ParaShape {
     /// Create a new default ParaShape for writing
     pub fn new_default() -> Self {
         Self {
-            properties1: 0x04, // Left alignment (bits 2-4 = 001)
-            left_margin: 567,    // 2mm left margin
-            right_margin: 567,   // 2mm right margin
-            indent: 567,         // 2mm first line indent
-            top_para_space: 283, // 1mm space before paragraph
+            properties1: 0x04,      // Left alignment (bits 2-4 = 001)
+            left_margin: 567,       // 2mm left margin
+            right_margin: 567,      // 2mm right margin
+            indent: 567,            // 2mm first line indent
+            top_para_space: 283,    // 1mm space before paragraph
             bottom_para_space: 283, // 1mm space after paragraph
-            line_space: 180,     // 180% line spacing (standard Korean)
+            line_space: 180,        // 180% line spacing (standard Korean)
             tab_def_id: 0,
             numbering_id: 0,
             border_fill_id: 0,
-            border_left_space: 142,  // 0.5mm border space
-            border_right_space: 142, // 0.5mm border space
-            border_top_space: 142,   // 0.5mm border space
+            border_left_space: 142,   // 0.5mm border space
+            border_right_space: 142,  // 0.5mm border space
+            border_top_space: 142,    // 0.5mm border space
             border_bottom_space: 142, // 0.5mm border space
-            properties2: 0x0001, // Enable widow/orphan control
-            properties3: 0x0002, // Enable hyphenation
-            line_space_type: 0, // Percentage
+            properties2: 0x0001,      // Enable widow/orphan control
+            properties3: 0x0002,      // Enable hyphenation
+            line_space_type: 0,       // Percentage
         }
     }
 }

@@ -45,11 +45,11 @@ impl Picture {
     pub fn new_default(bin_item_id: u16, width: u32, height: u32) -> Self {
         Self {
             properties: 0x80000000, // Default picture properties
-            left: 567,    // 2mm left position
-            top: 567,     // 2mm top position
+            left: 567,              // 2mm left position
+            top: 567,               // 2mm top position
             right: (width as i32) + 567,
             bottom: (height as i32) + 567,
-            z_order: 1,   // Above text layer
+            z_order: 1,               // Above text layer
             outer_margin_left: 283,   // 1mm outer margin
             outer_margin_right: 283,  // 1mm outer margin
             outer_margin_top: 283,    // 1mm outer margin
@@ -65,7 +65,7 @@ impl Picture {
     /// Serialize picture to bytes for HWP format
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut data = Vec::new();
-        
+
         // Basic picture properties
         data.extend_from_slice(&self.properties.to_le_bytes());
         data.extend_from_slice(&self.left.to_le_bytes());
@@ -82,7 +82,7 @@ impl Picture {
         data.extend_from_slice(&self.border_fill_id.to_le_bytes());
         data.extend_from_slice(&self.image_width.to_le_bytes());
         data.extend_from_slice(&self.image_height.to_le_bytes());
-        
+
         data
     }
 }
@@ -126,23 +126,27 @@ impl Table {
             properties: 0x0001, // Enable border
             rows,
             cols,
-            cell_spacing: 142,   // 0.5mm cell spacing
-            left_margin: 567,    // 2mm left margin
-            right_margin: 567,   // 2mm right margin
-            top_margin: 567,     // 2mm top margin
-            bottom_margin: 567,  // 2mm bottom margin
+            cell_spacing: 142,  // 0.5mm cell spacing
+            left_margin: 567,   // 2mm left margin
+            right_margin: 567,  // 2mm right margin
+            top_margin: 567,    // 2mm top margin
+            bottom_margin: 567, // 2mm bottom margin
             cells: Vec::new(),
         }
     }
 
     /// Get cell at specific row and column
     pub fn get_cell(&self, row: u16, col: u16) -> Option<&TableCell> {
-        self.cells.iter().find(|cell| cell.cell_address == (row, col))
+        self.cells
+            .iter()
+            .find(|cell| cell.cell_address == (row, col))
     }
 
     /// Get mutable cell at specific row and column
     pub fn get_cell_mut(&mut self, row: u16, col: u16) -> Option<&mut TableCell> {
-        self.cells.iter_mut().find(|cell| cell.cell_address == (row, col))
+        self.cells
+            .iter_mut()
+            .find(|cell| cell.cell_address == (row, col))
     }
 
     /// Add a cell to the table
@@ -170,7 +174,7 @@ impl Table {
             paragraph_list_id: None,
             cell_address: (row, col),
         };
-        
+
         self.add_cell(row, col, cell);
         self.get_cell_mut(row, col).unwrap()
     }
@@ -195,7 +199,7 @@ impl Table {
     /// Serialize table to bytes for HWP format
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut data = Vec::new();
-        
+
         // Basic table properties (24 bytes)
         data.extend_from_slice(&self.properties.to_le_bytes());
         data.extend_from_slice(&self.rows.to_le_bytes());
@@ -205,7 +209,7 @@ impl Table {
         data.extend_from_slice(&self.right_margin.to_le_bytes());
         data.extend_from_slice(&self.top_margin.to_le_bytes());
         data.extend_from_slice(&self.bottom_margin.to_le_bytes());
-        
+
         // Cells data (in row order)
         let sorted_cells = self.cells_by_row();
         for cell in sorted_cells {
@@ -220,7 +224,7 @@ impl Table {
             data.extend_from_slice(&cell.bottom_margin.to_le_bytes());
             data.extend_from_slice(&cell.border_fill_id.to_le_bytes());
             data.extend_from_slice(&cell.text_width.to_le_bytes());
-            
+
             // Field name (length + UTF-16LE string)
             let name_utf16: Vec<u16> = cell.field_name.encode_utf16().collect();
             data.extend_from_slice(&(name_utf16.len() as u16).to_le_bytes());
@@ -228,7 +232,7 @@ impl Table {
                 data.extend_from_slice(&ch.to_le_bytes());
             }
         }
-        
+
         data
     }
 }
@@ -285,7 +289,7 @@ impl Table {
 
             let row = (i / cols as usize) as u16;
             let col = (i % cols as usize) as u16;
-            
+
             let cell = TableCell {
                 list_header_id: reader.read_u32()?,
                 col_span: reader.read_u16()?,
