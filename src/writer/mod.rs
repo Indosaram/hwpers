@@ -170,7 +170,7 @@ impl HwpWriter {
     }
 
     /// Create a table builder for advanced table creation
-    pub fn add_table(&mut self, rows: u32, cols: u32) -> style::TableBuilder {
+    pub fn add_table(&mut self, rows: u32, cols: u32) -> style::TableBuilder<'_> {
         style::TableBuilder::new(self, rows, cols)
     }
 
