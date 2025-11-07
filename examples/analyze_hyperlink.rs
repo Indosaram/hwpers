@@ -1,3 +1,6 @@
+#![allow(clippy::unused_io_amount)]
+#![allow(clippy::if_same_then_else)]
+
 use hwpers::HwpReader;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};

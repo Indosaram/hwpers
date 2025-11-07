@@ -1,4 +1,7 @@
 // Analyze the exact structure of HeaderFooter record from sample.hwp
+#![allow(clippy::manual_is_multiple_of)]
+#![allow(clippy::manual_range_contains)]
+
 use hwpers::parser::record::{HwpTag, Record};
 use hwpers::reader::CfbReader;
 use hwpers::reader::StreamReader;

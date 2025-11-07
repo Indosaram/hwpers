@@ -272,11 +272,21 @@ impl Hyperlink {
         offset += 1;
 
         // Read text color (4 bytes)
-        let text_color = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        let text_color = u32::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ]);
         offset += 4;
 
         // Read visited color (4 bytes)
-        let visited_color = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        let visited_color = u32::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ]);
         offset += 4;
 
         // Read flags (1 byte)
@@ -287,11 +297,21 @@ impl Hyperlink {
         offset += 1;
 
         // Read start position (4 bytes)
-        let start_position = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        let start_position = u32::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ]);
         offset += 4;
 
         // Read length (4 bytes)
-        let length = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        let length = u32::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ]);
         offset += 4;
 
         // Read display text length (2 bytes) - number of UTF-16 characters
@@ -346,9 +366,8 @@ impl Hyperlink {
                 let char_val = u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
                 utf16_chars.push(char_val);
             }
-            target_url = String::from_utf16(&utf16_chars).map_err(|_| {
-                HwpError::InvalidFormat("Invalid UTF-16 in target URL".to_string())
-            })?;
+            target_url = String::from_utf16(&utf16_chars)
+                .map_err(|_| HwpError::InvalidFormat("Invalid UTF-16 in target URL".to_string()))?;
             offset += target_url_len * 2;
         }
 

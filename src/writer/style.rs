@@ -283,7 +283,7 @@ pub enum CellAlign {
 }
 
 /// Border style for individual table cells
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CellBorderStyle {
     pub left: BorderLineStyle,
     pub right: BorderLineStyle,
@@ -310,16 +310,6 @@ pub enum BorderLineType {
     Thick = 5,
 }
 
-impl Default for CellBorderStyle {
-    fn default() -> Self {
-        Self {
-            left: BorderLineStyle::default(),
-            right: BorderLineStyle::default(),
-            top: BorderLineStyle::default(),
-            bottom: BorderLineStyle::default(),
-        }
-    }
-}
 
 impl Default for BorderLineStyle {
     fn default() -> Self {

@@ -1,5 +1,6 @@
 use hwpers::{
     model::{TextBoxAlignment, TextBoxBorderStyle},
+    writer::{CustomTextBoxStyle, FloatingTextBoxStyle},
     HwpWriter,
 };
 
@@ -57,10 +58,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         150, // position
         100,
         40, // size
-        TextBoxAlignment::Center,
-        TextBoxBorderStyle::Dashed,
-        0x0000FF, // blue border
-        0xE6F3FF, // light blue background
+        CustomTextBoxStyle {
+            alignment: TextBoxAlignment::Center,
+            border_style: TextBoxBorderStyle::Dashed,
+            border_color: 0x0000FF, // blue border
+            background_color: 0xE6F3FF, // light blue background
+        },
     )?;
 
     writer.add_custom_text_box(
@@ -69,10 +72,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         150, // position
         90,
         35, // size
-        TextBoxAlignment::Left,
-        TextBoxBorderStyle::Solid,
-        0x00AA00, // green border
-        0xE6FFE6, // light green background
+        CustomTextBoxStyle {
+            alignment: TextBoxAlignment::Left,
+            border_style: TextBoxBorderStyle::Solid,
+            border_color: 0x00AA00, // green border
+            background_color: 0xE6FFE6, // light green background
+        },
     )?;
 
     // Example 5: Floating text box with rotation
@@ -84,9 +89,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         60,
         180, // position
         120,
-        20,  // size
-        180, // semi-transparent
-        45,  // 45 degree rotation
+        20, // size
+        FloatingTextBoxStyle {
+            opacity: 180, // semi-transparent
+            rotation: 45, // 45 degree rotation
+        },
     )?;
 
     // Example 6: Multiple text boxes layout

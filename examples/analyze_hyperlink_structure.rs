@@ -1,4 +1,9 @@
 // Analyze hyperlink structure from test file
+#![allow(clippy::if_same_then_else)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::manual_is_multiple_of)]
+#![allow(clippy::option_map_or_none)]
+
 use hwpers::parser::record::{HwpTag, Record};
 use hwpers::reader::CfbReader;
 use hwpers::reader::StreamReader;

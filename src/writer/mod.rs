@@ -29,6 +29,27 @@ pub struct HwpWriter {
     page_layout: crate::model::page_layout::PageLayout,
 }
 
+/// Options for custom hyperlink styling
+pub struct HyperlinkStyleOptions {
+    pub text_color: u32,
+    pub underline: bool,
+    pub new_window: bool,
+}
+
+/// Options for custom text box styling
+pub struct CustomTextBoxStyle {
+    pub alignment: crate::model::text_box::TextBoxAlignment,
+    pub border_style: crate::model::text_box::TextBoxBorderStyle,
+    pub border_color: u32,
+    pub background_color: u32,
+}
+
+/// Options for floating text box styling
+pub struct FloatingTextBoxStyle {
+    pub opacity: u8,
+    pub rotation: i16,
+}
+
 impl HwpWriter {
     /// Create a new HWP writer with minimal default structure
     pub fn new() -> Self {
@@ -235,7 +256,7 @@ impl HwpWriter {
     }
 
     /// Create a table builder for advanced table creation
-    pub fn add_table(&mut self, rows: u32, cols: u32) -> style::TableBuilder {
+    pub fn add_table(&mut self, rows: u32, cols: u32) -> style::TableBuilder<'_> {
         style::TableBuilder::new(self, rows, cols)
     }
 
@@ -278,9 +299,7 @@ impl HwpWriter {
             // Create the paragraph with proper para_shape_id
             use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
 
-            let para_text = ParaText {
-                content: full_text,
-            };
+            let para_text = ParaText { content: full_text };
 
             let char_shapes = ParaCharShape {
                 char_positions: vec![CharPositionShape {
@@ -364,7 +383,7 @@ impl HwpWriter {
                     1 => "◦",
                     _ => "▪",
                 };
-                format!("{}", symbol)
+                symbol.to_string()
             }
             style::ListType::Numbered => format!("{}.", index),
             style::ListType::Alphabetic => {
@@ -382,7 +401,7 @@ impl HwpWriter {
                     .unwrap_or(&"가");
                 format!("{}.", korean)
             }
-            style::ListType::Custom(format) => format!("{}", format),
+            style::ListType::Custom(format) => format.clone(),
         }
     }
 
@@ -477,7 +496,7 @@ impl HwpWriter {
 
         // Create paragraph containing the image (no text - picture control paragraph)
         let paragraph = Paragraph {
-            text: None, // Picture control paragraphs don't contain text
+            text: None,      // Picture control paragraphs don't contain text
             control_mask: 2, // Control header present (0x02)
             para_shape_id: 0,
             style_id: 0,
@@ -665,9 +684,7 @@ impl HwpWriter {
         hyperlink_type: crate::model::hyperlink::HyperlinkType,
         target_url: &str,
         display_mode: crate::model::hyperlink::HyperlinkDisplay,
-        text_color: u32,
-        underline: bool,
-        new_window: bool,
+        style_options: HyperlinkStyleOptions,
     ) -> Result<()> {
         use crate::model::hyperlink::Hyperlink;
 
@@ -677,11 +694,11 @@ impl HwpWriter {
             target_url: target_url.to_string(),
             tooltip: None,
             display_mode,
-            text_color,
+            text_color: style_options.text_color,
             visited_color: 0x800080,
-            underline,
+            underline: style_options.underline,
             visited: false,
-            open_in_new_window: new_window,
+            open_in_new_window: style_options.new_window,
             start_position: 0,
             length: display_text.len() as u32,
         };
@@ -965,13 +982,7 @@ impl HwpWriter {
     }
 
     /// Set page margins in millimeters
-    pub fn set_page_margins_mm(
-        &mut self,
-        left: f32,
-        right: f32,
-        top: f32,
-        bottom: f32,
-    ) {
+    pub fn set_page_margins_mm(&mut self, left: f32, right: f32, top: f32, bottom: f32) {
         use crate::model::page_layout::mm_to_hwp_units;
         self.page_layout.margins.left = mm_to_hwp_units(left);
         self.page_layout.margins.right = mm_to_hwp_units(right);
@@ -1225,8 +1236,8 @@ impl HwpWriter {
 
     /// Add a styled paragraph
     pub fn add_styled_paragraph(&mut self, styled_text: &style::StyledText) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
         use crate::model::paragraph::{ParaText, Paragraph};
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
 
         let text = &styled_text.text;
         let ranges = &styled_text.ranges;
@@ -1255,7 +1266,9 @@ impl HwpWriter {
         };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: text.clone() }),
+            text: Some(ParaText {
+                content: text.clone(),
+            }),
             char_shapes: Some(para_char_shape.clone()),
             char_shape_count: para_char_shape.char_positions.len() as u16,
             ..Default::default()
@@ -1276,8 +1289,8 @@ impl HwpWriter {
         text: &str,
         bold_ranges: Vec<(usize, usize)>,
     ) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
         use crate::model::paragraph::{ParaText, Paragraph};
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
 
         let mut char_positions = Vec::new();
 
@@ -1297,7 +1310,9 @@ impl HwpWriter {
         let para_char_shape = ParaCharShape { char_positions };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: text.to_string() }),
+            text: Some(ParaText {
+                content: text.to_string(),
+            }),
             char_shapes: Some(para_char_shape.clone()),
             char_shape_count: para_char_shape.char_positions.len() as u16,
             ..Default::default()
@@ -1318,8 +1333,8 @@ impl HwpWriter {
         text: &str,
         color_ranges: Vec<(usize, usize, u32)>,
     ) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
         use crate::model::paragraph::{ParaText, Paragraph};
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
 
         let mut char_positions = Vec::new();
 
@@ -1339,7 +1354,9 @@ impl HwpWriter {
         let para_char_shape = ParaCharShape { char_positions };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: text.to_string() }),
+            text: Some(ParaText {
+                content: text.to_string(),
+            }),
             char_shapes: Some(para_char_shape.clone()),
             char_shape_count: para_char_shape.char_positions.len() as u16,
             ..Default::default()
@@ -1360,8 +1377,8 @@ impl HwpWriter {
         text: &str,
         highlight_ranges: Vec<(usize, usize, u32)>,
     ) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
         use crate::model::paragraph::{ParaText, Paragraph};
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
 
         let mut char_positions = Vec::new();
 
@@ -1381,7 +1398,9 @@ impl HwpWriter {
         let para_char_shape = ParaCharShape { char_positions };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: text.to_string() }),
+            text: Some(ParaText {
+                content: text.to_string(),
+            }),
             char_shapes: Some(para_char_shape.clone()),
             char_shape_count: para_char_shape.char_positions.len() as u16,
             ..Default::default()
@@ -1402,8 +1421,8 @@ impl HwpWriter {
         text: &str,
         style_ranges: Vec<(usize, usize, style::TextStyle)>,
     ) -> Result<()> {
+        use crate::model::para_char_shape::{CharPositionShape, ParaCharShape};
         use crate::model::paragraph::{ParaText, Paragraph};
-        use crate::model::para_char_shape::{ParaCharShape, CharPositionShape};
 
         let mut char_positions = Vec::new();
 
@@ -1422,7 +1441,9 @@ impl HwpWriter {
         let para_char_shape = ParaCharShape { char_positions };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: text.to_string() }),
+            text: Some(ParaText {
+                content: text.to_string(),
+            }),
             char_shapes: Some(para_char_shape.clone()),
             char_shape_count: para_char_shape.char_positions.len() as u16,
             ..Default::default()
@@ -1442,9 +1463,9 @@ impl HwpWriter {
 impl HwpWriter {
     /// Add a simple text box
     pub fn add_text_box(&mut self, text: &str) -> Result<()> {
-        use crate::model::text_box::TextBox;
         use crate::model::ctrl_header::CtrlHeader;
         use crate::model::paragraph::ParaText;
+        use crate::model::text_box::TextBox;
 
         let text_box = TextBox::new(text);
 
@@ -1455,7 +1476,9 @@ impl HwpWriter {
         };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: String::new() }),
+            text: Some(ParaText {
+                content: String::new(),
+            }),
             control_mask: 0x02, // Control header present
             para_shape_id: 0,
             style_id: 0,
@@ -1492,9 +1515,9 @@ impl HwpWriter {
         width: u32,
         height: u32,
     ) -> Result<()> {
-        use crate::model::text_box::TextBox;
         use crate::model::ctrl_header::CtrlHeader;
         use crate::model::paragraph::ParaText;
+        use crate::model::text_box::TextBox;
 
         let text_box = TextBox::new(text)
             .with_position_mm(x as i32, y as i32)
@@ -1507,7 +1530,9 @@ impl HwpWriter {
         };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: String::new() }),
+            text: Some(ParaText {
+                content: String::new(),
+            }),
             control_mask: 0x02,
             para_shape_id: 0,
             style_id: 0,
@@ -1543,21 +1568,18 @@ impl HwpWriter {
         y: u32,
         width: u32,
         height: u32,
-        alignment: crate::model::text_box::TextBoxAlignment,
-        border_style: crate::model::text_box::TextBoxBorderStyle,
-        border_color: u32,
-        background_color: u32,
+        style: CustomTextBoxStyle,
     ) -> Result<()> {
-        use crate::model::text_box::TextBox;
         use crate::model::ctrl_header::CtrlHeader;
         use crate::model::paragraph::ParaText;
+        use crate::model::text_box::TextBox;
 
         let text_box = TextBox::new(text)
             .with_position_mm(x as i32, y as i32)
             .with_size_mm(width, height)
-            .with_alignment(alignment)
-            .with_border(border_style, 1, border_color)
-            .with_background(background_color);
+            .with_alignment(style.alignment)
+            .with_border(style.border_style, 1, style.border_color)
+            .with_background(style.background_color);
 
         let ctrl_header = CtrlHeader {
             ctrl_id: 0x7874, // TextBox control ID
@@ -1566,7 +1588,9 @@ impl HwpWriter {
         };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: String::new() }),
+            text: Some(ParaText {
+                content: String::new(),
+            }),
             control_mask: 0x02,
             para_shape_id: 0,
             style_id: 0,
@@ -1596,9 +1620,9 @@ impl HwpWriter {
 
     /// Add styled text box
     pub fn add_styled_text_box(&mut self, text: &str, style: &str) -> Result<()> {
-        use crate::model::text_box::TextBox;
         use crate::model::ctrl_header::CtrlHeader;
         use crate::model::paragraph::ParaText;
+        use crate::model::text_box::TextBox;
 
         let text_box = match style {
             "basic" => TextBox::basic(text),
@@ -1617,7 +1641,9 @@ impl HwpWriter {
         };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: String::new() }),
+            text: Some(ParaText {
+                content: String::new(),
+            }),
             control_mask: 0x02,
             para_shape_id: 0,
             style_id: 0,
@@ -1653,20 +1679,19 @@ impl HwpWriter {
         y: u32,
         width: u32,
         height: u32,
-        opacity: u8,
-        rotation: i16,
+        style: FloatingTextBoxStyle,
     ) -> Result<()> {
-        use crate::model::text_box::{TextBox, TextBoxAlignment};
         use crate::model::ctrl_header::CtrlHeader;
         use crate::model::paragraph::ParaText;
+        use crate::model::text_box::{TextBox, TextBoxAlignment};
 
         let text_box = TextBox::new(text)
             .with_position_mm(x as i32, y as i32)
             .with_size_mm(width, height)
             .with_alignment(TextBoxAlignment::Absolute)
             .with_transparent_background()
-            .with_opacity(opacity)
-            .with_rotation(rotation);
+            .with_opacity(style.opacity)
+            .with_rotation(style.rotation);
 
         let ctrl_header = CtrlHeader {
             ctrl_id: 0x7874, // TextBox control ID
@@ -1675,7 +1700,9 @@ impl HwpWriter {
         };
 
         let paragraph = Paragraph {
-            text: Some(ParaText { content: String::new() }),
+            text: Some(ParaText {
+                content: String::new(),
+            }),
             control_mask: 0x02,
             para_shape_id: 0,
             style_id: 0,
@@ -1843,7 +1870,10 @@ impl HwpWriter {
         let text = self.document.extract_text();
 
         // Count sections
-        let section_count = self.document.body_texts.iter()
+        let section_count = self
+            .document
+            .body_texts
+            .iter()
             .map(|bt| bt.sections.len())
             .sum::<usize>() as u16;
 
@@ -1854,18 +1884,20 @@ impl HwpWriter {
 
         // Count different character types
         let hangul_character_count = chars.iter().filter(|c| is_hangul(**c)).count() as u32;
-        let english_character_count = chars.iter().filter(|c| c.is_ascii_alphabetic()).count() as u32;
+        let english_character_count =
+            chars.iter().filter(|c| c.is_ascii_alphabetic()).count() as u32;
         let hanja_character_count = chars.iter().filter(|c| is_hanja(**c)).count() as u32;
         let japanese_character_count = chars.iter().filter(|c| is_japanese(**c)).count() as u32;
 
         // Count symbols and other
-        let symbol_character_count = chars.iter().filter(|c| c.is_ascii_punctuation()).count() as u32;
-        let other_character_count = (total_character_count as usize -
-            hangul_character_count as usize -
-            english_character_count as usize -
-            hanja_character_count as usize -
-            japanese_character_count as usize -
-            symbol_character_count as usize) as u32;
+        let symbol_character_count =
+            chars.iter().filter(|c| c.is_ascii_punctuation()).count() as u32;
+        let other_character_count = (total_character_count as usize
+            - hangul_character_count as usize
+            - english_character_count as usize
+            - hanja_character_count as usize
+            - japanese_character_count as usize
+            - symbol_character_count as usize) as u32;
 
         // Count words (split by whitespace)
         let total_word_count = text.split_whitespace().count() as u32;

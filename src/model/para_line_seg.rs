@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::parser::record::Record;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ParaLineSeg {
     pub line_segments: Vec<LineSegment>,
 }

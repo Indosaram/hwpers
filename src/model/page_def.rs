@@ -171,17 +171,21 @@ impl PageDef {
             layout.clone()
         } else {
             // Create layout from current PageDef values
-            let mut layout = PageLayout::default();
-            layout.width = self.width;
-            layout.height = self.height;
-            layout.margins.left = self.left_margin;
-            layout.margins.right = self.right_margin;
-            layout.margins.top = self.top_margin;
-            layout.margins.bottom = self.bottom_margin;
-            layout.margins.header = self.header_margin;
-            layout.margins.footer = self.footer_margin;
-            layout.margins.gutter = self.gutter_margin;
-            layout
+            PageLayout {
+                width: self.width,
+                height: self.height,
+                margins: crate::model::page_layout::PageMargins {
+                    left: self.left_margin,
+                    right: self.right_margin,
+                    top: self.top_margin,
+                    bottom: self.bottom_margin,
+                    header: self.header_margin,
+                    footer: self.footer_margin,
+                    gutter: self.gutter_margin,
+                    mirror_margins: false,
+                },
+                ..Default::default()
+            }
         }
     }
 

@@ -227,7 +227,7 @@ fn serialize_body_text(body_text: &crate::parser::body_text::BodyText) -> Result
                     write_record(
                         &mut writer,
                         0x54,
-                        &serialize_para_range_tag_hyperlink(&hyperlink)?,
+                        &serialize_para_range_tag_hyperlink(hyperlink)?,
                     )?;
                 }
             }

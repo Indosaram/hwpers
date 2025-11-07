@@ -1,3 +1,7 @@
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::manual_is_multiple_of)]
+
 use hwpers::parser::record::{HwpTag, Record};
 use hwpers::reader::CfbReader;
 use hwpers::reader::StreamReader;
@@ -76,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 let char_val =
                                     u16::from_le_bytes([data[char_offset], data[char_offset + 1]]);
                                 if char_val == 0
-                                    || (char_val >= 32 && char_val < 0xD800)
+                                    || (32..0xD800).contains(&char_val)
                                     || char_val > 0xDFFF
                                 {
                                     utf16_chars.push(char_val);

@@ -1,5 +1,6 @@
 use hwpers::{
     model::{HyperlinkDisplay, HyperlinkType},
+    writer::HyperlinkStyleOptions,
     HwpWriter,
 };
 
@@ -117,9 +118,11 @@ fn test_custom_hyperlink() {
             HyperlinkType::Url,
             "https://custom.example.com",
             HyperlinkDisplay::Both,
-            0xFF0000, // Red color
-            false,    // No underline
-            true,     // Open in new window
+            HyperlinkStyleOptions {
+                text_color: 0xFF0000, // Red color
+                underline: false,     // No underline
+                new_window: true,     // Open in new window
+            },
         )
         .unwrap();
 
@@ -281,9 +284,11 @@ fn test_mixed_document_with_hyperlinks() {
             HyperlinkType::Url,
             "https://special.example.com",
             HyperlinkDisplay::Both,
-            0xFF0000, // Red
-            true,     // Underline
-            true,     // New window
+            HyperlinkStyleOptions {
+                text_color: 0xFF0000, // Red
+                underline: true,      // Underline
+                new_window: true,     // New window
+            },
         )
         .unwrap();
 

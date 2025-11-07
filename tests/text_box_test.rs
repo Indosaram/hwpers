@@ -1,5 +1,6 @@
 use hwpers::{
     model::{TextBoxAlignment, TextBoxBorderStyle, TextBoxFillType},
+    writer::{CustomTextBoxStyle, FloatingTextBoxStyle},
     HwpWriter,
 };
 
@@ -99,7 +100,7 @@ fn test_styled_text_boxes() {
         .find(|p| {
             p.text_box_data
                 .as_ref()
-                .map_or(false, |tb| tb.text == "Highlight style")
+                .is_some_and(|tb| tb.text == "Highlight style")
         })
         .unwrap();
     let highlight_box = highlight_para.text_box_data.as_ref().unwrap();
@@ -111,7 +112,7 @@ fn test_styled_text_boxes() {
         .find(|p| {
             p.text_box_data
                 .as_ref()
-                .map_or(false, |tb| tb.text == "Warning style")
+                .is_some_and(|tb| tb.text == "Warning style")
         })
         .unwrap();
     let warning_box = warning_para.text_box_data.as_ref().unwrap();
@@ -130,10 +131,12 @@ fn test_custom_text_box() {
             25, // position
             80,
             40, // size
-            TextBoxAlignment::Center,
-            TextBoxBorderStyle::Dashed,
-            0x0000FF, // blue border
-            0xF0F0F0, // light gray background
+            CustomTextBoxStyle {
+                alignment: TextBoxAlignment::Center,
+                border_style: TextBoxBorderStyle::Dashed,
+                border_color: 0x0000FF, // blue border
+                background_color: 0xF0F0F0, // light gray background
+            },
         )
         .unwrap();
 
@@ -168,9 +171,11 @@ fn test_floating_text_box() {
             30,
             40, // position
             60,
-            20,  // size
-            180, // semi-transparent
-            45,  // 45 degree rotation
+            20, // size
+            FloatingTextBoxStyle {
+                opacity: 180, // semi-transparent
+                rotation: 45, // 45 degree rotation
+            },
         )
         .unwrap();
 
@@ -251,10 +256,12 @@ fn test_multiple_text_boxes() {
             120,
             70,
             35,
-            TextBoxAlignment::Right,
-            TextBoxBorderStyle::Double,
-            0x800080, // purple
-            0xFFE0FF, // light purple
+            CustomTextBoxStyle {
+                alignment: TextBoxAlignment::Right,
+                border_style: TextBoxBorderStyle::Double,
+                border_color: 0x800080, // purple
+                background_color: 0xFFE0FF, // light purple
+            },
         )
         .unwrap();
 
