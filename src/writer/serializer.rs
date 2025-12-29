@@ -163,11 +163,18 @@ fn serialize_doc_info(doc_info: &crate::parser::doc_info::DocInfo) -> Result<Vec
     let mut writer = Cursor::new(&mut data);
 
     // Write document properties (always required) - level 0
-    let props = doc_info.properties.as_ref().map_or_else(
-        crate::model::document::DocumentProperties::default,
-        |p| p.clone(),
-    );
-    write_record(&mut writer, 0x10, 0, &serialize_document_properties(&props)?)?;
+    let props = doc_info
+        .properties
+        .as_ref()
+        .map_or_else(crate::model::document::DocumentProperties::default, |p| {
+            p.clone()
+        });
+    write_record(
+        &mut writer,
+        0x10,
+        0,
+        &serialize_document_properties(&props)?,
+    )?;
 
     // Write ID mappings (required for compatibility) - level 0
     write_record(&mut writer, 0x11, 0, &serialize_id_mappings(doc_info)?)?;
@@ -441,7 +448,7 @@ fn serialize_paragraph_header(paragraph: &crate::model::paragraph::Paragraph) ->
         .as_ref()
         .map(|t| t.content.len() as u32 / 2) // UTF-16 chars
         .unwrap_or(0);
-    
+
     // Character count with lastInList flag (bit 31)
     // For simple paragraphs, set lastInList = true
     let char_count_with_flags = char_count | 0x80000000; // Set lastInList bit
@@ -449,28 +456,28 @@ fn serialize_paragraph_header(paragraph: &crate::model::paragraph::Paragraph) ->
 
     // Control mask
     writer.write_u32::<LittleEndian>(paragraph.control_mask)?;
-    
+
     // Para shape ID
     writer.write_u16::<LittleEndian>(paragraph.para_shape_id)?;
-    
+
     // Style ID
     writer.write_u8(paragraph.style_id)?;
-    
+
     // Divide sort (column type)
     writer.write_u8(paragraph.column_type)?;
-    
+
     // Char shape count
     writer.write_u16::<LittleEndian>(paragraph.char_shape_count.max(1))?;
-    
+
     // Range tag count
     writer.write_u16::<LittleEndian>(paragraph.range_tag_count)?;
-    
+
     // Line align count
     writer.write_u16::<LittleEndian>(paragraph.line_align_count.max(1))?;
-    
+
     // Instance ID
     writer.write_u32::<LittleEndian>(paragraph.instance_id)?;
-    
+
     // IsMergedByTrack (2 bytes for HWP 5.0.3.2+)
     writer.write_u16::<LittleEndian>(0)?;
 
@@ -713,7 +720,7 @@ fn serialize_document_properties(
 
     // 3 u32 fields (12 bytes) - list numbering/bullet related
     writer.write_u32::<LittleEndian>(0)?; // List ID numbering
-    writer.write_u32::<LittleEndian>(0)?; // Bullet ID numbering  
+    writer.write_u32::<LittleEndian>(0)?; // Bullet ID numbering
     writer.write_u32::<LittleEndian>(0)?; // Reserved or caret position
 
     Ok(data)
