@@ -72,24 +72,25 @@ impl ParaShape {
     }
 
     /// Create a new default ParaShape for writing
+    /// Values match HWP template for compatibility
     pub fn new_default() -> Self {
         Self {
-            properties1: 0x04,      // Left alignment (bits 2-4 = 001)
-            left_margin: 567,       // 2mm left margin
-            right_margin: 567,      // 2mm right margin
-            indent: 567,            // 2mm first line indent
-            top_para_space: 283,    // 1mm space before paragraph
-            bottom_para_space: 283, // 1mm space after paragraph
-            line_space: 180,        // 180% line spacing (standard Korean)
+            properties1: 0x04,        // Left alignment (bits 2-4 = 001)
+            left_margin: 0,           // No left margin (template default)
+            right_margin: 0,          // No right margin (template default)
+            indent: 0,                // No first line indent (template default)
+            top_para_space: 0,        // No space before (template default)
+            bottom_para_space: 0,     // No space after (template default)
+            line_space: 160,          // 160% line spacing (template default: 0xA0)
             tab_def_id: 0,
             numbering_id: 0,
             border_fill_id: 0,
-            border_left_space: 142,   // 0.5mm border space
-            border_right_space: 142,  // 0.5mm border space
-            border_top_space: 142,    // 0.5mm border space
-            border_bottom_space: 142, // 0.5mm border space
-            properties2: 0x0001,      // Enable widow/orphan control
-            properties3: 0x0002,      // Enable hyphenation
+            border_left_space: 0,     // No border space (template default)
+            border_right_space: 0,
+            border_top_space: 0,
+            border_bottom_space: 0,
+            properties2: 0,           // No special properties (template default)
+            properties3: 0,
             line_space_type: 0,       // Percentage
         }
     }

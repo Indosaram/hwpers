@@ -102,15 +102,22 @@ impl FileHeader {
 }
 impl FileHeader {
     /// Create a new default FileHeader for writing
+    /// Uses version 5.0.3.4 and NO compression for maximum compatibility
+    /// (matching hwplib's BlankFileMaker.java)
     pub fn new_default() -> Self {
         let mut signature = [0u8; 32];
         signature[..17].copy_from_slice(HWP_SIGNATURE);
 
+        let mut reserved = [0u8; 216];
+        // Reserved offset 4 (FileHeader offset 0x2C) = 0x04
+        // This is required for HWP compatibility
+        reserved[4] = 0x04;
+
         Self {
             signature,
-            version: 0x05050114, // HWP 5.0.5.1 version
-            flags: 0x01,         // Enable compression
-            reserved: [0u8; 216],
+            version: 0x05000304, // HWP 5.0.3.4 (compatible version)
+            flags: 0x00,         // NO compression for compatibility
+            reserved,
         }
     }
 

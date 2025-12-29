@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-29
+
+### Fixed - HWP Writer Compatibility
+
+#### Critical Bug Fix
+- **HWP files now open correctly in Hangul word processor**
+  - Fixed FileHeader: version 5.0.3.4, compression disabled, reserved[4]=0x04
+  - Fixed Scripts streams: uncompressed raw data matching hwplib format
+  - Fixed BodyText structure: added required section/column definition paragraph
+    - Section define (`secd`) and column define (`cold`) control characters
+    - PAGE_DEF, FOOTNOTE_SHAPE, PAGE_BORDER_FILL records
+    - Proper `lastInList` flag handling for paragraph linking
+  - Added PARA_LINE_SEG for text layout
+
+#### Technical Changes
+- Rewrote `serialize_body_text()` with proper HWP structure
+- Added `write_section_definition()` for section control paragraph
+- Added `write_content_paragraph()` for text paragraphs
+- Updated default values for ParaShape and TabDef
+
 ## [0.3.1] - 2025-01-29
 
 ### Added - Complete HWP Writer Implementation

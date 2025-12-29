@@ -3,133 +3,153 @@ use crate::model::HwpDocument;
 use crate::utils::encoding::string_to_utf16le;
 use byteorder::{LittleEndian, WriteBytesExt};
 use cfb::CompoundFile;
-use flate2::{write::ZlibEncoder, Compression};
+use flate2::{write::DeflateEncoder, Compression};
 use std::io::{Cursor, Write};
 
 /// Serialize an HWP document to bytes
 pub fn serialize_document(document: &HwpDocument) -> Result<Vec<u8>> {
-    // Use template-based approach to maintain 512-byte sectors
-    // Embed the template file at compile time to avoid runtime file access issues
-    let template_data = include_bytes!("../minimal_base_template.hwp").to_vec();
+    // Create CFB file from scratch (no template dependency)
+    let buffer = Vec::new();
+    let cursor = Cursor::new(buffer);
 
-    // Use the template as base
-    let mut cursor = Cursor::new(template_data);
-    {
-        let mut cfb = CompoundFile::open(&mut cursor)
-            .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    // Use CFB version 3 (512-byte sectors) for HWP compatibility
+    let mut cfb = CompoundFile::create_with_version(cfb::Version::V3, cursor)
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
 
-        // Clear existing streams and recreate with new data
-        // Note: cfb crate doesn't support deleting streams, so we'll overwrite them
+    // Create required storages
+    cfb.create_storage("/BodyText")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    cfb.create_storage("/DocOptions")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    cfb.create_storage("/Scripts")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
 
-        // Serialize FileHeader - open existing stream instead of creating
-        let header_data = serialize_file_header(&document.header)?;
-        let mut header_stream = cfb
-            .open_stream("FileHeader")
-            .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-        header_stream.set_len(0)?; // Clear existing content
-        header_stream.write_all(&header_data)?;
+    // Create and write FileHeader stream (256 bytes, uncompressed)
+    let header_data = serialize_file_header(&document.header)?;
+    let mut header_stream = cfb
+        .create_stream("/FileHeader")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    header_stream.write_all(&header_data)?;
+    drop(header_stream);
 
-        // Serialize DocInfo - open existing stream
-        let doc_info_data = serialize_doc_info(&document.doc_info)?;
-        let compressed_doc_info = if document.header.is_compressed() {
-            compress_data(&doc_info_data)?
+    // Serialize and write DocInfo stream
+    let doc_info_data = serialize_doc_info(&document.doc_info)?;
+    let final_doc_info = if document.header.is_compressed() {
+        compress_data(&doc_info_data)?
+    } else {
+        doc_info_data
+    };
+    let mut doc_info_stream = cfb
+        .create_stream("/DocInfo")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    doc_info_stream.write_all(&final_doc_info)?;
+    drop(doc_info_stream);
+
+    // Serialize BodyText sections
+    for (i, body_text) in document.body_texts.iter().enumerate() {
+        let section_data = serialize_body_text(body_text)?;
+        let final_section = if document.header.is_compressed() {
+            compress_data(&section_data)?
         } else {
-            doc_info_data
+            section_data
         };
-        let mut doc_info_stream = cfb
-            .open_stream("DocInfo")
+
+        let section_path = format!("/BodyText/Section{i}");
+        let mut section_stream = cfb
+            .create_stream(&section_path)
             .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-        doc_info_stream.set_len(0)?;
-        doc_info_stream.write_all(&compressed_doc_info)?;
-
-        // BodyText directory should already exist in template
-
-        // Serialize BodyText sections
-        for (i, body_text) in document.body_texts.iter().enumerate() {
-            let section_data = serialize_body_text(body_text)?;
-            let compressed_section = if document.header.is_compressed() {
-                compress_data(&section_data)?
-            } else {
-                section_data
-            };
-
-            let section_path = format!("BodyText/Section{i}");
-            let mut section_stream = cfb
-                .open_stream(&section_path)
-                .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-            section_stream.set_len(0)?;
-            section_stream.write_all(&compressed_section)?;
-        }
-
-        // Update HwpSummaryInformation stream if it exists
-        if cfb.exists("HwpSummaryInformation") {
-            let summary_data = create_summary_information()?;
-            let mut summary_stream = cfb
-                .open_stream("HwpSummaryInformation")
-                .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-            summary_stream.set_len(0)?;
-            summary_stream.write_all(&summary_data)?;
-        }
-
-        // Update PrvText stream if it exists
-        if cfb.exists("PrvText") {
-            let prv_text = create_preview_text(document)?;
-            let mut prv_stream = cfb
-                .open_stream("PrvText")
-                .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-            prv_stream.set_len(0)?;
-            prv_stream.write_all(&prv_text)?;
-        }
-
-        // Update DocOptions/_LinkDoc stream if it exists
-        if cfb.exists("DocOptions/_LinkDoc") {
-            let doc_options = create_doc_options()?;
-            let mut options_stream = cfb
-                .open_stream("DocOptions/_LinkDoc")
-                .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-            options_stream.set_len(0)?;
-            options_stream.write_all(&doc_options)?;
-        }
-
-        // ViewText stream doesn't exist in template, skip it
-
-        // Update PrvImage stream if it exists
-        if cfb.exists("PrvImage") {
-            let prv_image = create_prv_image()?;
-            let mut prv_image_stream = cfb
-                .open_stream("PrvImage")
-                .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-            prv_image_stream.set_len(0)?;
-            prv_image_stream.write_all(&prv_image)?;
-        }
-
-        // Create BinData storage if there are images
-        if !document.doc_info.bin_data.is_empty() {
-            // Ensure BinData storage exists
-            if !cfb.exists("BinData") {
-                cfb.create_storage("BinData")
-                    .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-            }
-
-            // Write each binary data item
-            for bin_data in &document.doc_info.bin_data {
-                let stream_name =
-                    format!("BinData/BIN{:04}.{}", bin_data.bin_id, bin_data.extension);
-                let mut stream = cfb
-                    .create_stream(&stream_name)
-                    .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
-                stream.write_all(&bin_data.data)?;
-            }
-        }
-
-        // Scripts storage should already exist in template
-
-        // Flush the CFB file
-        cfb.flush()
-            .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+        section_stream.write_all(&final_section)?;
+        drop(section_stream);
     }
 
-    Ok(cursor.into_inner())
+    // Create BinData storage and streams if there are images
+    if !document.doc_info.bin_data.is_empty() {
+        cfb.create_storage("/BinData")
+            .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+
+        for bin_data in &document.doc_info.bin_data {
+            let stream_name = format!("/BinData/BIN{:04X}.{}", bin_data.bin_id, bin_data.extension);
+
+            // Compress binary data if document uses compression
+            let final_data = if document.header.is_compressed() {
+                compress_data(&bin_data.data)?
+            } else {
+                bin_data.data.clone()
+            };
+
+            let mut stream = cfb
+                .create_stream(&stream_name)
+                .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+            stream.write_all(&final_data)?;
+            drop(stream);
+        }
+    }
+
+    // Create PrvText stream (preview text)
+    let prv_text = create_preview_text(document)?;
+    let mut prv_stream = cfb
+        .create_stream("/PrvText")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    prv_stream.write_all(&prv_text)?;
+    drop(prv_stream);
+
+    // Create PrvImage stream (empty but required for compatibility)
+    let mut prv_image_stream = cfb
+        .create_stream("/PrvImage")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    prv_image_stream.write_all(&[])?;
+    drop(prv_image_stream);
+
+    // Create DocOptions/_LinkDoc stream
+    let doc_options = create_doc_options()?;
+    let mut options_stream = cfb
+        .create_stream("/DocOptions/_LinkDoc")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    options_stream.write_all(&doc_options)?;
+    drop(options_stream);
+
+    // Create Scripts/JScriptVersion stream (uncompressed, matching hwplib blank.hwp)
+    // 8 bytes: version 1 in little-endian
+    let jscript_version: [u8; 8] = [0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    let mut script_ver_stream = cfb
+        .create_stream("/Scripts/JScriptVersion")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    script_ver_stream.write_all(&jscript_version)?;
+    drop(script_ver_stream);
+
+    // Create Scripts/DefaultJScript stream (uncompressed, matching hwplib blank.hwp)
+    // 272 bytes: UTF-16LE encoded JavaScript with standard HWP document bindings
+    #[rustfmt::skip]
+    let default_jscript: [u8; 272] = [
+        0x4F, 0x00, 0x00, 0x00, 0x76, 0x00, 0x61, 0x00, 0x72, 0x00, 0x20, 0x00, 0x44, 0x00, 0x6F, 0x00,
+        0x63, 0x00, 0x75, 0x00, 0x6D, 0x00, 0x65, 0x00, 0x6E, 0x00, 0x74, 0x00, 0x73, 0x00, 0x20, 0x00,
+        0x3D, 0x00, 0x20, 0x00, 0x58, 0x00, 0x48, 0x00, 0x77, 0x00, 0x70, 0x00, 0x44, 0x00, 0x6F, 0x00,
+        0x63, 0x00, 0x75, 0x00, 0x6D, 0x00, 0x65, 0x00, 0x6E, 0x00, 0x74, 0x00, 0x73, 0x00, 0x3B, 0x00,
+        0x0D, 0x00, 0x0A, 0x00, 0x76, 0x00, 0x61, 0x00, 0x72, 0x00, 0x20, 0x00, 0x44, 0x00, 0x6F, 0x00,
+        0x63, 0x00, 0x75, 0x00, 0x6D, 0x00, 0x65, 0x00, 0x6E, 0x00, 0x74, 0x00, 0x20, 0x00, 0x3D, 0x00,
+        0x20, 0x00, 0x44, 0x00, 0x6F, 0x00, 0x63, 0x00, 0x75, 0x00, 0x6D, 0x00, 0x65, 0x00, 0x6E, 0x00,
+        0x74, 0x00, 0x73, 0x00, 0x2E, 0x00, 0x41, 0x00, 0x63, 0x00, 0x74, 0x00, 0x69, 0x00, 0x76, 0x00,
+        0x65, 0x00, 0x5F, 0x00, 0x58, 0x00, 0x48, 0x00, 0x77, 0x00, 0x70, 0x00, 0x44, 0x00, 0x6F, 0x00,
+        0x63, 0x00, 0x75, 0x00, 0x6D, 0x00, 0x65, 0x00, 0x6E, 0x00, 0x74, 0x00, 0x3B, 0x00, 0x0D, 0x00,
+        0x0A, 0x00, 0x2F, 0x00, 0x00, 0x00, 0x66, 0x00, 0x75, 0x00, 0x6E, 0x00, 0x63, 0x00, 0x74, 0x00,
+        0x69, 0x00, 0x6F, 0x00, 0x6E, 0x00, 0x20, 0x00, 0x4F, 0x00, 0x6E, 0x00, 0x44, 0x00, 0x6F, 0x00,
+        0x63, 0x00, 0x75, 0x00, 0x6D, 0x00, 0x65, 0x00, 0x6E, 0x00, 0x74, 0x00, 0x5F, 0x00, 0x4E, 0x00,
+        0x65, 0x00, 0x77, 0x00, 0x28, 0x00, 0x29, 0x00, 0x0D, 0x00, 0x0A, 0x00, 0x7B, 0x00, 0x0D, 0x00,
+        0x0A, 0x00, 0x09, 0x00, 0x2F, 0x00, 0x2F, 0x00, 0x74, 0x00, 0x6F, 0x00, 0x64, 0x00, 0x6F, 0x00,
+        0x20, 0x00, 0x3A, 0x00, 0x20, 0x00, 0x0D, 0x00, 0x0A, 0x00, 0x7D, 0x00, 0x0D, 0x00, 0x0A, 0x00,
+        0x0D, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
+    ];
+    let mut script_stream = cfb
+        .create_stream("/Scripts/DefaultJScript")
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+    script_stream.write_all(&default_jscript)?;
+    drop(script_stream);
+
+    // Flush and return the CFB data
+    cfb.flush()
+        .map_err(|e| crate::error::HwpError::Io(std::io::Error::other(e)))?;
+
+    Ok(cfb.into_inner().into_inner())
 }
 
 /// Serialize FileHeader to bytes
@@ -142,150 +162,323 @@ fn serialize_doc_info(doc_info: &crate::parser::doc_info::DocInfo) -> Result<Vec
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    // Write document properties if available
-    if let Some(props) = &doc_info.properties {
-        write_record(&mut writer, 0x10, &serialize_document_properties(props)?)?;
-    }
+    // Write document properties (always required) - level 0
+    let props = doc_info.properties.as_ref().map_or_else(
+        || crate::model::document::DocumentProperties::default(),
+        |p| p.clone(),
+    );
+    write_record(&mut writer, 0x10, 0, &serialize_document_properties(&props)?)?;
 
-    // Write ID mappings (required for compatibility)
-    write_record(&mut writer, 0x11, &serialize_id_mappings()?)?;
+    // Write ID mappings (required for compatibility) - level 0
+    write_record(&mut writer, 0x11, 0, &serialize_id_mappings(doc_info)?)?;
 
-    // Write face names
+    // Write face names - level 1
     for face_name in &doc_info.face_names {
-        write_record(&mut writer, 0x13, &serialize_face_name(face_name)?)?;
+        write_record(&mut writer, 0x13, 1, &serialize_face_name(face_name)?)?;
     }
 
-    // Write character shapes
-    for char_shape in &doc_info.char_shapes {
-        write_record(&mut writer, 0x15, &serialize_char_shape(char_shape)?)?;
-    }
-
-    // Write paragraph shapes
-    for para_shape in &doc_info.para_shapes {
-        write_record(&mut writer, 0x19, &serialize_para_shape(para_shape)?)?;
-    }
-
-    // Write styles
-    for style in &doc_info.styles {
-        write_record(&mut writer, 0x1A, &serialize_style(style)?)?;
-    }
-
-    // Write border fills
+    // Write border fills - level 1
     for border_fill in &doc_info.border_fills {
-        write_record(&mut writer, 0x14, &serialize_border_fill(border_fill)?)?;
+        write_record(&mut writer, 0x14, 1, &serialize_border_fill(border_fill)?)?;
     }
 
-    // Write tab definitions
-    for tab_def in &doc_info.tab_defs {
-        write_record(&mut writer, 0x16, &serialize_tab_def(tab_def)?)?;
+    // Write character shapes - level 1
+    for char_shape in &doc_info.char_shapes {
+        write_record(&mut writer, 0x15, 1, &serialize_char_shape(char_shape)?)?;
     }
+
+    // Write tab definitions - level 1
+    for tab_def in &doc_info.tab_defs {
+        write_record(&mut writer, 0x16, 1, &serialize_tab_def(tab_def)?)?;
+    }
+
+    // Write paragraph shapes - level 1
+    for para_shape in &doc_info.para_shapes {
+        write_record(&mut writer, 0x19, 1, &serialize_para_shape(para_shape)?)?;
+    }
+
+    // Write styles - level 1
+    for style in &doc_info.styles {
+        write_record(&mut writer, 0x1A, 1, &serialize_style(style)?)?;
+    }
+
+    // Write COMPATIBLE_DOCUMENT (0x1E) - required for HWP compatibility
+    // Value 0 = current HWP version
+    write_record(&mut writer, 0x1E, 0, &[0u8; 4])?;
+
+    // Write LAYOUT_COMPATIBILITY (0x1F) - required for HWP compatibility
+    // 20 bytes, all zeros = default compatibility
+    write_record(&mut writer, 0x1F, 1, &[0u8; 20])?;
 
     Ok(data)
 }
 
 /// Serialize BodyText to bytes
+/// HWP BodyText tags (HWPTAG_BEGIN = 0x10, so 0x42 = 0x10 + 50):
+/// - 0x42 = PARA_HEADER
+/// - 0x43 = PARA_TEXT
+/// - 0x44 = PARA_CHAR_SHAPE
+/// - 0x45 = PARA_LINE_SEG
+/// - 0x47 = CTRL_HEADER
+/// - 0x49 = PAGE_DEF
+/// - 0x4A = FOOTNOTE_SHAPE
+/// - 0x4B = PAGE_BORDER_FILL
 fn serialize_body_text(body_text: &crate::parser::body_text::BodyText) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    for (section_idx, section) in body_text.sections.iter().enumerate() {
-        // Write section define for first section
-        if section_idx == 0 {
-            if let Some(_section_def) = &section.section_def {
-                // Serialize section definition
-                let section_data = Vec::new(); // TODO: properly serialize section def
-                write_record(&mut writer, 0x42, &section_data)?;
-            } else {
-                // Write empty section define
-                write_record(&mut writer, 0x42, &[])?;
-            }
-        }
+    for section in &body_text.sections {
+        // First, write section definition paragraph (required for HWP structure)
+        write_section_definition(&mut writer)?;
 
-        // Write page definition if available
-        if let Some(page_def) = &section.page_def {
-            write_record(&mut writer, 0x57, &serialize_page_def(page_def)?)?;
-        }
-
-        for paragraph in &section.paragraphs {
-            // Write paragraph header record (0x50)
-            write_record(&mut writer, 0x50, &serialize_paragraph_header(paragraph)?)?;
-
-            // Write paragraph text record (0x51) if text exists
-            if let Some(text) = &paragraph.text {
-                write_record(&mut writer, 0x51, &serialize_paragraph_text(text)?)?;
-            }
-
-            // Write character shape record (0x52) if exists
-            if let Some(char_shapes) = &paragraph.char_shapes {
-                write_record(&mut writer, 0x52, &serialize_para_char_shapes(char_shapes)?)?;
-            }
-
-            // Write hyperlink as ParaRangeTag if exists
-            if !paragraph.hyperlinks.is_empty() {
-                // Hyperlinks are stored as ParaRangeTag (0x54)
-                for hyperlink in &paragraph.hyperlinks {
-                    write_record(
-                        &mut writer,
-                        0x54,
-                        &serialize_para_range_tag_hyperlink(hyperlink)?,
-                    )?;
-                }
-            }
-
-            // Write picture control if exists
-            if let Some(picture) = &paragraph.picture_data {
-                // Pictures use CtrlHeader (0x55)
-                write_record(&mut writer, 0x55, &serialize_picture_control(picture)?)?;
-            }
-        }
-
-        // Write header/footer controls after section
-        if let Some(page_def) = &section.page_def {
-            // Write header controls
-            for header in page_def.header_footer.headers() {
-                write_record(
-                    &mut writer,
-                    0x55,
-                    &serialize_header_footer_control(header, true)?,
-                )?;
-            }
-
-            // Write footer controls
-            for footer in page_def.header_footer.footers() {
-                write_record(
-                    &mut writer,
-                    0x55,
-                    &serialize_header_footer_control(footer, false)?,
-                )?;
-            }
+        // Then write content paragraphs
+        let para_count = section.paragraphs.len();
+        for (i, paragraph) in section.paragraphs.iter().enumerate() {
+            let is_last = i == para_count - 1;
+            write_content_paragraph(&mut writer, paragraph, is_last)?;
         }
     }
 
     Ok(data)
 }
 
-/// Serialize paragraph header (0x50)
+/// Write section definition paragraph (secd + cold controls)
+fn write_section_definition<W: Write>(writer: &mut W) -> Result<()> {
+    // PARA_HEADER for section definition (charCount=17, has section control)
+    #[rustfmt::skip]
+    let para_header: [u8; 24] = [
+        0x11, 0x00, 0x00, 0x00, // charCount=17, lastInList=false (NOT last!)
+        0x04, 0x00, 0x00, 0x00, // controlMask = has section define
+        0x00, 0x00,             // paraShapeId = 0
+        0x00,                   // styleId = 0
+        0x03,                   // divideSort = 3
+        0x01, 0x00,             // charShapeCount = 1
+        0x00, 0x00,             // rangeTagCount = 0
+        0x01, 0x00,             // lineAlignCount = 1
+        0x00, 0x00, 0x00, 0x00, // instanceId = 0
+        0x00, 0x00,             // isMergedByTrack = 0
+    ];
+    write_record(writer, 0x42, 0, &para_header)?;
+
+    // PARA_TEXT with section/column control characters
+    #[rustfmt::skip]
+    let para_text: [u8; 34] = [
+        0x02, 0x00,             // Extended control marker
+        0x64, 0x63, 0x65, 0x73, // 'secd' (section define)
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 8 bytes reserved
+        0x02, 0x00,             // Extended control marker
+        0x02, 0x00,             // Another marker
+        0x64, 0x6C, 0x6F, 0x63, // 'cold' (column define)
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 8 bytes reserved
+        0x02, 0x00,             // Section end marker
+        0x0D, 0x00,             // Paragraph end (carriage return)
+    ];
+    write_record(writer, 0x43, 1, &para_text)?;
+
+    // PARA_CHAR_SHAPE
+    let char_shape: [u8; 8] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    write_record(writer, 0x44, 1, &char_shape)?;
+
+    // PARA_LINE_SEG (line layout info)
+    #[rustfmt::skip]
+    let line_seg: [u8; 36] = [
+        0x00, 0x00, 0x00, 0x00, // textStartPos
+        0x00, 0x00, 0x00, 0x00, // lineVerticalPos
+        0xE8, 0x03, 0x00, 0x00, // lineHeight = 1000
+        0xE8, 0x03, 0x00, 0x00, // textHeight = 1000
+        0x52, 0x03, 0x00, 0x00, // baseLineGap = 850
+        0x58, 0x02, 0x00, 0x00, // lineSpacing = 600
+        0x00, 0x00, 0x00, 0x00, // startMargin
+        0x18, 0xA6, 0x00, 0x00, // lineWidth = 42520
+        0x00, 0x00, 0x06, 0x00, // flags
+    ];
+    write_record(writer, 0x45, 1, &line_seg)?;
+
+    // CTRL_HEADER for 'secd' (section define)
+    #[rustfmt::skip]
+    let ctrl_secd: [u8; 38] = [
+        0x64, 0x63, 0x65, 0x73, // 'secd'
+        0x00, 0x00, 0x00, 0x00,
+        0x6E, 0x04, 0x00, 0x00, 0x00, 0x00, 0x40, 0x1F,
+        0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    write_record(writer, 0x47, 1, &ctrl_secd)?;
+
+    // PAGE_DEF (A4 size page definition)
+    #[rustfmt::skip]
+    let page_def: [u8; 40] = [
+        0x88, 0xE8, 0x00, 0x00, // width = 59528 (A4)
+        0xDC, 0x48, 0x01, 0x00, // height = 84188 (A4)
+        0x38, 0x21, 0x00, 0x00, // left margin = 8504
+        0x38, 0x21, 0x00, 0x00, // right margin = 8504
+        0x24, 0x16, 0x00, 0x00, // top margin = 5668
+        0x9C, 0x10, 0x00, 0x00, // bottom margin = 4252
+        0x9C, 0x10, 0x00, 0x00, // header margin = 4252
+        0x9C, 0x10, 0x00, 0x00, // footer margin = 4252
+        0x00, 0x00, 0x00, 0x00, // gutter = 0
+        0x00, 0x00, 0x00, 0x00, // properties = 0
+    ];
+    write_record(writer, 0x49, 2, &page_def)?;
+
+    // FOOTNOTE_SHAPE x2
+    #[rustfmt::skip]
+    let footnote1: [u8; 28] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x29, 0x00, 0x01, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
+        0x52, 0x03, 0x37, 0x02, 0x1B, 0x01, 0x01, 0x01,
+        0x00, 0x00, 0x00, 0x00,
+    ];
+    write_record(writer, 0x4A, 2, &footnote1)?;
+
+    #[rustfmt::skip]
+    let footnote2: [u8; 28] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x29, 0x00, 0x01, 0x00, 0xF8, 0x2F, 0xE0, 0x00,
+        0x52, 0x03, 0x37, 0x02, 0x00, 0x00, 0x01, 0x01,
+        0x00, 0x00, 0x00, 0x00,
+    ];
+    write_record(writer, 0x4A, 2, &footnote2)?;
+
+    // PAGE_BORDER_FILL x3
+    #[rustfmt::skip]
+    let border_fill: [u8; 14] = [
+        0x01, 0x00, 0x00, 0x00, 0x89, 0x05, 0x89, 0x05,
+        0x89, 0x05, 0x89, 0x05, 0x01, 0x00,
+    ];
+    write_record(writer, 0x4B, 2, &border_fill)?;
+    write_record(writer, 0x4B, 2, &border_fill)?;
+    write_record(writer, 0x4B, 2, &border_fill)?;
+
+    // CTRL_HEADER for 'cold' (column define)
+    #[rustfmt::skip]
+    let ctrl_cold: [u8; 16] = [
+        0x64, 0x6C, 0x6F, 0x63, // 'cold'
+        0x04, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+    ];
+    write_record(writer, 0x47, 1, &ctrl_cold)?;
+
+    Ok(())
+}
+
+/// Write a content paragraph with text
+fn write_content_paragraph<W: Write>(
+    writer: &mut W,
+    paragraph: &crate::model::paragraph::Paragraph,
+    is_last: bool,
+) -> Result<()> {
+    // Get text content
+    let text_content = paragraph
+        .text
+        .as_ref()
+        .map(|t| t.content.as_str())
+        .unwrap_or("");
+
+    // Convert to UTF-16LE and add paragraph end marker
+    let mut text_utf16 = string_to_utf16le(text_content);
+    text_utf16.extend_from_slice(&[0x0D, 0x00]); // paragraph end marker
+    let char_count = (text_utf16.len() / 2) as u32;
+
+    // PARA_HEADER
+    let mut para_header = Vec::new();
+    let char_count_flags = if is_last {
+        char_count | 0x80000000 // lastInList = true
+    } else {
+        char_count // lastInList = false
+    };
+    para_header.write_u32::<LittleEndian>(char_count_flags)?;
+    para_header.write_u32::<LittleEndian>(0)?; // controlMask
+    para_header.write_u16::<LittleEndian>(0)?; // paraShapeId
+    para_header.write_u8(0)?; // styleId
+    para_header.write_u8(0)?; // divideSort
+    para_header.write_u16::<LittleEndian>(1)?; // charShapeCount
+    para_header.write_u16::<LittleEndian>(0)?; // rangeTagCount
+    para_header.write_u16::<LittleEndian>(1)?; // lineAlignCount
+    para_header.write_u32::<LittleEndian>(0)?; // instanceId
+    para_header.write_u16::<LittleEndian>(0)?; // isMergedByTrack
+    write_record(writer, 0x42, 0, &para_header)?;
+
+    // PARA_TEXT
+    write_record(writer, 0x43, 1, &text_utf16)?;
+
+    // PARA_CHAR_SHAPE
+    let char_shape: [u8; 8] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    write_record(writer, 0x44, 1, &char_shape)?;
+
+    // PARA_LINE_SEG (basic line layout)
+    #[rustfmt::skip]
+    let line_seg: [u8; 36] = [
+        0x00, 0x00, 0x00, 0x00, // textStartPos
+        0x00, 0x00, 0x00, 0x00, // lineVerticalPos
+        0xE8, 0x03, 0x00, 0x00, // lineHeight = 1000
+        0xE8, 0x03, 0x00, 0x00, // textHeight = 1000
+        0x52, 0x03, 0x00, 0x00, // baseLineGap = 850
+        0x58, 0x02, 0x00, 0x00, // lineSpacing = 600
+        0x00, 0x00, 0x00, 0x00, // startMargin
+        0x18, 0xA6, 0x00, 0x00, // lineWidth = 42520
+        0x00, 0x00, 0x06, 0x00, // flags
+    ];
+    write_record(writer, 0x45, 1, &line_seg)?;
+
+    Ok(())
+}
+
+// The following functions are kept for future extension (hyperlinks, images, headers/footers)
+#[allow(dead_code)]
+/// Serialize paragraph header (HWPTAG_PARA_HEADER = 0x42)
+/// Structure: characterCount(4) + controlMask(4) + paraShapeId(2) + styleId(1) +
+///            divideSort(1) + charShapeCount(2) + rangeTagCount(2) + lineAlignCount(2) +
+///            instanceId(4) + isMergedByTrack(2) = 24 bytes
 fn serialize_paragraph_header(paragraph: &crate::model::paragraph::Paragraph) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    // Write paragraph header
-    writer.write_u32::<LittleEndian>(paragraph.control_mask)?;
-    writer.write_u16::<LittleEndian>(paragraph.para_shape_id)?;
-    writer.write_u8(paragraph.style_id)?;
-    writer.write_u8(paragraph.column_type)?;
-    writer.write_u16::<LittleEndian>(paragraph.char_shape_count)?;
-    writer.write_u16::<LittleEndian>(paragraph.range_tag_count)?;
-    writer.write_u16::<LittleEndian>(paragraph.line_align_count)?;
-    writer.write_u32::<LittleEndian>(paragraph.instance_id)?;
+    // Calculate character count from text (including control chars)
+    let char_count = paragraph
+        .text
+        .as_ref()
+        .map(|t| t.content.len() as u32 / 2) // UTF-16 chars
+        .unwrap_or(0);
+    
+    // Character count with lastInList flag (bit 31)
+    // For simple paragraphs, set lastInList = true
+    let char_count_with_flags = char_count | 0x80000000; // Set lastInList bit
+    writer.write_u32::<LittleEndian>(char_count_with_flags)?;
 
-    // Reserved/Unknown bytes (needed for compatibility)
-    writer.write_u32::<LittleEndian>(0)?; // Reserved
+    // Control mask
+    writer.write_u32::<LittleEndian>(paragraph.control_mask)?;
+    
+    // Para shape ID
+    writer.write_u16::<LittleEndian>(paragraph.para_shape_id)?;
+    
+    // Style ID
+    writer.write_u8(paragraph.style_id)?;
+    
+    // Divide sort (column type)
+    writer.write_u8(paragraph.column_type)?;
+    
+    // Char shape count
+    writer.write_u16::<LittleEndian>(paragraph.char_shape_count.max(1))?;
+    
+    // Range tag count
+    writer.write_u16::<LittleEndian>(paragraph.range_tag_count)?;
+    
+    // Line align count
+    writer.write_u16::<LittleEndian>(paragraph.line_align_count.max(1))?;
+    
+    // Instance ID
+    writer.write_u32::<LittleEndian>(paragraph.instance_id)?;
+    
+    // IsMergedByTrack (2 bytes for HWP 5.0.3.2+)
+    writer.write_u16::<LittleEndian>(0)?;
 
     Ok(data)
 }
 
 /// Serialize paragraph text (0x51)
+#[allow(dead_code)]
 fn serialize_paragraph_text(text: &crate::model::paragraph::ParaText) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
@@ -300,6 +493,7 @@ fn serialize_paragraph_text(text: &crate::model::paragraph::ParaText) -> Result<
 }
 
 /// Serialize paragraph character shapes (0x52)
+#[allow(dead_code)]
 fn serialize_para_char_shapes(
     char_shapes: &crate::model::para_char_shape::ParaCharShape,
 ) -> Result<Vec<u8>> {
@@ -319,6 +513,7 @@ fn serialize_para_char_shapes(
 }
 
 /// Serialize hyperlink as ParaRangeTag (0x54)
+#[allow(dead_code)]
 fn serialize_para_range_tag_hyperlink(
     hyperlink: &crate::model::hyperlink::Hyperlink,
 ) -> Result<Vec<u8>> {
@@ -373,6 +568,7 @@ fn serialize_para_range_tag_hyperlink(
 }
 
 /// Serialize page definition (0x57)
+#[allow(dead_code)]
 fn serialize_page_def(page_def: &crate::model::page_def::PageDef) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
@@ -404,6 +600,7 @@ fn serialize_page_def(page_def: &crate::model::page_def::PageDef) -> Result<Vec<
 }
 
 /// Serialize header/footer control
+#[allow(dead_code)]
 fn serialize_header_footer_control(
     header_footer: &crate::model::header_footer::HeaderFooter,
     _is_header: bool,
@@ -441,6 +638,7 @@ fn serialize_header_footer_control(
 }
 
 /// Serialize picture control  
+#[allow(dead_code)]
 fn serialize_picture_control(picture: &crate::model::control::Picture) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
@@ -479,8 +677,7 @@ fn serialize_picture_control(picture: &crate::model::control::Picture) -> Result
 }
 
 /// Write a record with header and data
-fn write_record<W: Write>(writer: &mut W, tag: u16, data: &[u8]) -> Result<()> {
-    let level = 0u16;
+fn write_record<W: Write>(writer: &mut W, tag: u16, level: u16, data: &[u8]) -> Result<()> {
     let size = data.len() as u32;
 
     if size < 0xFFF {
@@ -498,75 +695,80 @@ fn write_record<W: Write>(writer: &mut W, tag: u16, data: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// Serialize document properties
+/// Serialize document properties (26 bytes for HWP compatibility)
 fn serialize_document_properties(
     props: &crate::model::document::DocumentProperties,
 ) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    // Write basic properties (simplified)
-    writer.write_u16::<LittleEndian>(props.section_count)?;
-    writer.write_u16::<LittleEndian>(props.total_page_count as u16)?;
+    // 7 u16 fields (14 bytes)
+    writer.write_u16::<LittleEndian>(props.section_count.max(1))?; // Must be at least 1
+    writer.write_u16::<LittleEndian>(props.page_start_number.max(1))?; // Default 1
+    writer.write_u16::<LittleEndian>(props.footnote_start_number.max(1))?; // Default 1
+    writer.write_u16::<LittleEndian>(props.endnote_start_number.max(1))?; // Default 1
+    writer.write_u16::<LittleEndian>(props.picture_start_number.max(1))?; // Default 1
+    writer.write_u16::<LittleEndian>(props.table_start_number.max(1))?; // Default 1
+    writer.write_u16::<LittleEndian>(props.equation_start_number)?; // Can be 0
+
+    // 3 u32 fields (12 bytes) - list numbering/bullet related
+    writer.write_u32::<LittleEndian>(0)?; // List ID numbering
+    writer.write_u32::<LittleEndian>(0)?; // Bullet ID numbering  
+    writer.write_u32::<LittleEndian>(0)?; // Reserved or caret position
 
     Ok(data)
 }
 
 /// Serialize ID mappings (HWPTAG_ID_MAPPINGS = 0x11)
-fn serialize_id_mappings() -> Result<Vec<u8>> {
+/// ID_MAPPINGS counts must EXACTLY match the number of actual records that follow
+fn serialize_id_mappings(doc_info: &crate::parser::doc_info::DocInfo) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    // ID mappings format
-    // This record contains mappings between various IDs used in the document
-
     // Bin Data Count
-    writer.write_u32::<LittleEndian>(0)?; // No binary data
+    writer.write_u32::<LittleEndian>(doc_info.bin_data.len() as u32)?;
 
-    // Korean Font Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one Korean font
-
-    // English Font Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one English font
-
-    // Hanja Font Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one Hanja font
-
-    // Japanese Font Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one Japanese font
-
-    // Other Font Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one other font
-
-    // Symbol Font Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one symbol font
-
-    // User Font Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one user font
+    // Font counts per language category (7 categories)
+    // IMPORTANT: Total face names written = sum of all category counts
+    // We write ALL face names under Korean category for simplicity
+    let face_name_count = doc_info.face_names.len() as u32;
+    writer.write_u32::<LittleEndian>(face_name_count)?; // Korean
+    writer.write_u32::<LittleEndian>(0)?; // English
+    writer.write_u32::<LittleEndian>(0)?; // Hanja
+    writer.write_u32::<LittleEndian>(0)?; // Japanese
+    writer.write_u32::<LittleEndian>(0)?; // Other
+    writer.write_u32::<LittleEndian>(0)?; // Symbol
+    writer.write_u32::<LittleEndian>(0)?; // User
 
     // Border Fill Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one border fill
+    writer.write_u32::<LittleEndian>(doc_info.border_fills.len().max(1) as u32)?;
 
     // Char Shape Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one char shape
+    writer.write_u32::<LittleEndian>(doc_info.char_shapes.len().max(1) as u32)?;
 
     // Tab Def Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one tab def
+    writer.write_u32::<LittleEndian>(doc_info.tab_defs.len().max(1) as u32)?;
 
     // Numbering Count
-    writer.write_u32::<LittleEndian>(0)?; // No numbering
+    writer.write_u32::<LittleEndian>(doc_info.numberings.len() as u32)?;
 
     // Bullet Count
-    writer.write_u32::<LittleEndian>(0)?; // No bullets
+    writer.write_u32::<LittleEndian>(doc_info.bullets.len() as u32)?;
 
     // Para Shape Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one para shape
+    writer.write_u32::<LittleEndian>(doc_info.para_shapes.len().max(1) as u32)?;
 
     // Style Count
-    writer.write_u32::<LittleEndian>(1)?; // At least one style
+    writer.write_u32::<LittleEndian>(doc_info.styles.len().max(1) as u32)?;
 
-    // Memo Shape Count (if version >= 5.0.2.1)
-    writer.write_u32::<LittleEndian>(0)?; // No memo shapes
+    // Memo Shape Count
+    writer.write_u32::<LittleEndian>(0)?;
+
+    // TrackChange Author Count (required for HWP 5.0.2.1+)
+    writer.write_u32::<LittleEndian>(0)?;
+
+    // TrackChange Count
+    writer.write_u32::<LittleEndian>(0)?;
 
     Ok(data)
 }
@@ -731,57 +933,12 @@ fn serialize_tab_def(tab_def: &crate::model::tab_def::TabDef) -> Result<Vec<u8>>
     Ok(data)
 }
 
-/// Compress data using zlib
+/// Compress data using raw deflate (no zlib header - HWP format requirement)
 fn compress_data(data: &[u8]) -> Result<Vec<u8>> {
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data)?;
     let compressed_data = encoder.finish()?;
     Ok(compressed_data)
-}
-
-/// Create HwpSummaryInformation stream
-fn create_summary_information() -> Result<Vec<u8>> {
-    let mut data = Vec::new();
-    let mut writer = Cursor::new(&mut data);
-
-    // HWP Summary Information format
-    // This is a simplified version with minimal required fields
-
-    // Write format version
-    writer.write_u32::<LittleEndian>(0x00000005)?; // Version 5
-
-    // Write creation date/time (current time as FILETIME)
-    let filetime = 0x01D9A0B0A0000000u64; // Placeholder timestamp
-    writer.write_u64::<LittleEndian>(filetime)?;
-
-    // Write last saved date/time
-    writer.write_u64::<LittleEndian>(filetime)?;
-
-    // Write revision number
-    writer.write_u32::<LittleEndian>(1)?;
-
-    // Write total editing time in minutes
-    writer.write_u32::<LittleEndian>(0)?;
-
-    // Write last printed date/time
-    writer.write_u64::<LittleEndian>(0)?;
-
-    // Write creation date/time (duplicate)
-    writer.write_u64::<LittleEndian>(filetime)?;
-
-    // Write page count
-    writer.write_u32::<LittleEndian>(1)?;
-
-    // Write word count
-    writer.write_u32::<LittleEndian>(0)?;
-
-    // Write character count
-    writer.write_u32::<LittleEndian>(0)?;
-
-    // Write security (0 = none)
-    writer.write_u32::<LittleEndian>(0)?;
-
-    Ok(data)
 }
 
 /// Create PrvText stream (preview text)
@@ -817,16 +974,6 @@ fn create_preview_text(document: &HwpDocument) -> Result<Vec<u8>> {
     // Convert to UTF-16LE
     let utf16_bytes = string_to_utf16le(&preview_text);
     Ok(utf16_bytes)
-}
-
-/// Create PrvImage stream (preview image)
-fn create_prv_image() -> Result<Vec<u8>> {
-    // PrvImage contains a preview image of the document
-    // For now, we'll create an empty/minimal placeholder
-    // In a real implementation, this would contain a bitmap or other image format
-
-    // Return empty data for now - Hangul will handle missing preview
-    Ok(Vec::new())
 }
 
 /// Create DocOptions stream

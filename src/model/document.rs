@@ -127,7 +127,7 @@ impl HwpDocument {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DocumentProperties {
     pub section_count: u16,
     pub page_start_number: u16,

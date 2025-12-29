@@ -43,20 +43,11 @@ impl TabDef {
 }
 impl TabDef {
     /// Create a new default TabDef for writing
+    /// Matches HWP template (empty tabs, properties = 0)
     pub fn new_default() -> Self {
-        // Create standard tab stops every 20mm (5669 HWP units)
-        let mut tabs = Vec::new();
-        for i in 1..=10 {
-            tabs.push(Tab {
-                position: i * 5669, // 20mm intervals
-                tab_type: 0,        // Left tab
-                leader_type: 0,     // No leader
-            });
-        }
-
         Self {
             properties: 0,
-            tabs,
+            tabs: Vec::new(), // No tabs (template default)
         }
     }
 }
