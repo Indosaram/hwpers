@@ -164,7 +164,7 @@ fn serialize_doc_info(doc_info: &crate::parser::doc_info::DocInfo) -> Result<Vec
 
     // Write document properties (always required) - level 0
     let props = doc_info.properties.as_ref().map_or_else(
-        || crate::model::document::DocumentProperties::default(),
+        crate::model::document::DocumentProperties::default,
         |p| p.clone(),
     );
     write_record(&mut writer, 0x10, 0, &serialize_document_properties(&props)?)?;
