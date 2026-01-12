@@ -3,12 +3,16 @@ use crate::parser::body_text::BodyText;
 use crate::parser::doc_info::DocInfo;
 use crate::parser::header::FileHeader;
 use crate::parser::record::Record;
+use crate::preview::{PreviewImage, PreviewText, SummaryInfo};
 
 #[derive(Debug)]
 pub struct HwpDocument {
     pub header: FileHeader,
     pub doc_info: DocInfo,
     pub body_texts: Vec<BodyText>,
+    pub preview_text: Option<PreviewText>,
+    pub preview_image: Option<PreviewImage>,
+    pub summary_info: Option<SummaryInfo>,
 }
 
 impl HwpDocument {
@@ -124,6 +128,46 @@ impl HwpDocument {
             .iter()
             .filter(|bd| bd.is_ole_object())
             .collect()
+    }
+
+    pub fn preview_text(&self) -> Option<&PreviewText> {
+        self.preview_text.as_ref()
+    }
+
+    pub fn preview_image(&self) -> Option<&PreviewImage> {
+        self.preview_image.as_ref()
+    }
+
+    pub fn summary_info(&self) -> Option<&SummaryInfo> {
+        self.summary_info.as_ref()
+    }
+
+    pub fn title(&self) -> Option<&str> {
+        self.summary_info.as_ref().and_then(|s| s.title.as_deref())
+    }
+
+    pub fn author(&self) -> Option<&str> {
+        self.summary_info.as_ref().and_then(|s| s.author.as_deref())
+    }
+
+    pub fn subject(&self) -> Option<&str> {
+        self.summary_info
+            .as_ref()
+            .and_then(|s| s.subject.as_deref())
+    }
+
+    pub fn keywords(&self) -> Option<&str> {
+        self.summary_info
+            .as_ref()
+            .and_then(|s| s.keywords.as_deref())
+    }
+
+    pub fn is_distribution_document(&self) -> bool {
+        self.header.is_distribute()
+    }
+
+    pub fn is_encrypted(&self) -> bool {
+        self.header.is_encrypted()
     }
 }
 

@@ -25,7 +25,12 @@ encoding_rs = "0.8"
 byteorder = "1.5"
 thiserror = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
+zip = "2.2"
+quick-xml = { version = "0.37", features = ["serialize"] }
+aes = "0.8"
+ecb = "0.1"
+block-padding = "0.3"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
@@ -33,4 +38,3 @@ tempfile = "3.8"
 
 [features]
 default = []
-serde_support = ["serde"]
