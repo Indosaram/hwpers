@@ -343,7 +343,7 @@ pub enum PageNumberFormat {
 }
 
 impl PageNumberFormat {
-    fn to_hwpx_format(&self) -> &'static str {
+    fn as_hwpx_format(self) -> &'static str {
         match self {
             Self::Numeric => "DIGIT",
             Self::RomanLower => "ROMAN_SMALL",
@@ -1401,14 +1401,14 @@ impl HwpxWriter {
             };
 
             let content = if header.text.is_empty() {
-                format!(concat!(
+                concat!(
                     r#"<hp:ctrl>"#,
                     r#"<hp:autoNum num="1" numType="PAGE">"#,
                     r#"<hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar="" supscript="0"/>"#,
                     r#"</hp:autoNum>"#,
                     r#"</hp:ctrl>"#,
                     r#"<hp:t/>"#
-                ))
+                ).to_string()
             } else {
                 format!(r#"<hp:t>{}</hp:t>"#, escape_xml(&header.text))
             };
@@ -1447,7 +1447,7 @@ impl HwpxWriter {
             };
 
             let content = if footer.include_page_number {
-                let format_type = footer.page_number_format.to_hwpx_format();
+                let format_type = footer.page_number_format.as_hwpx_format();
                 format!(
                     concat!(
                         r#"<hp:t>{}</hp:t>"#,

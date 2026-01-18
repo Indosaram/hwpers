@@ -135,7 +135,7 @@ mod tests {
         data[2] = 0x03;
         data[3] = 0x04;
 
-        let original = data.clone();
+        let original = data;
         obfuscation_transform(&mut data);
 
         assert_eq!(data[0..4], original[0..4]);

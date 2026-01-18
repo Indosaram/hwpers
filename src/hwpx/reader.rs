@@ -229,7 +229,7 @@ impl HwpxReader {
                 let paragraphs: Vec<Paragraph> = xml_section
                     .paragraphs
                     .iter()
-                    .map(|xml_para| Self::convert_paragraph(xml_para))
+                    .map(Self::convert_paragraph)
                     .collect();
 
                 BodyText {
