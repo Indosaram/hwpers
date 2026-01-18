@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-01-19
+
+### Added - HWPX Format Support
+
+#### HWPX Reader
+- **Complete HWPX (Open XML) format parsing**
+  - ZIP-based HWPX archive reading
+  - XML content parsing with full namespace support
+  - Conversion to HwpDocument for unified API
+  - `HwpxReader::from_file()` and `HwpxReader::from_bytes()`
+
+#### HWPX Writer
+- **Full HWPX document creation**
+  - Create HWPX documents from scratch
+  - Text with styling (bold, italic, underline, strikethrough, colors)
+  - Tables with cell formatting
+  - Hyperlinks (URL, email, file, bookmarks)
+  - Images (PNG, JPEG, BMP, GIF)
+  - Headers and footers with page numbering
+  - Page layout configuration
+  - `HwpxWriter` with fluent API
+
+### Added - Distribution Document Decryption
+
+- **Support for encrypted distribution documents (배포용 문서)**
+  - `DistributionDecryptor` for AES-128 ECB decryption
+  - `decrypt_distribution_stream()` convenience function
+  - Automatic detection via `FileHeader.is_distribute()`
+  - ViewText stream reading for distribution documents
+
+### Added - Document Preview Features
+
+#### Preview Text
+- **Extract preview text from PrvText stream**
+  - `PreviewText::from_bytes()` for parsing
+  - Quick document content preview without full parsing
+
+#### Preview Image
+- **Extract preview image from PrvImage stream**
+  - `PreviewImage::from_bytes()` for BMP/PNG thumbnails
+  - Document thumbnail extraction
+
+#### Summary Information
+- **OLE Summary Information parsing**
+  - `SummaryInfo` struct with document metadata
+  - Title, subject, author, keywords, comments
+  - Creation date, last saved date, last saved by
+  - Page count, word count, character count
+  - Revision number tracking
+
+### Changed
+- `HwpDocument` now includes optional `preview_text`, `preview_image`, and `summary_info` fields
+- HwpReader automatically extracts preview data when available
+
+### Dependencies
+- Added `zip` for HWPX archive handling
+- Added `quick-xml` for XML parsing
+- Added `aes`, `ecb`, `block-padding` for distribution document decryption
+
 ## [0.4.0] - 2025-12-29
 
 ### Fixed - HWP Writer Compatibility
@@ -213,6 +272,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.5.0]: https://github.com/Indosaram/hwpers/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/Indosaram/hwpers/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Indosaram/hwpers/compare/v0.2.0...v0.3.1
 [0.2.0]: https://github.com/Indosaram/hwpers/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Indosaram/hwpers/releases/tag/v0.1.0

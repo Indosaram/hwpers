@@ -1,6 +1,6 @@
 [package]
 name = "hwpers"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 authors = ["HWP Parser Contributors"]
 description = "A Rust library for parsing Korean Hangul Word Processor (HWP) files with full layout rendering support"
