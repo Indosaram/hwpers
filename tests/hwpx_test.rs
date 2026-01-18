@@ -1,9 +1,16 @@
 use hwpers::hwpx::writer::{HwpxHyperlink, HwpxImage, HwpxTable, HwpxTextStyle, StyledText};
 use hwpers::{HwpxReader, HwpxWriter};
 use std::path::PathBuf;
+use tempfile::TempDir;
 
 fn test_file_path(name: &str) -> PathBuf {
     PathBuf::from("test-files").join(name)
+}
+
+fn create_temp_file(name: &str) -> (TempDir, PathBuf) {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let path = temp_dir.path().join(name);
+    (temp_dir, path)
 }
 
 #[test]
@@ -88,7 +95,7 @@ fn test_hwpx_save_to_file() {
     writer.add_paragraph("Test Document").unwrap();
     writer.add_paragraph("문서 테스트").unwrap();
 
-    let output_path = test_file_path("test_output.hwpx");
+    let (_temp_dir, output_path) = create_temp_file("test_output.hwpx");
     writer.save_to_file(&output_path).unwrap();
 
     assert!(output_path.exists(), "Output file should exist");
@@ -97,8 +104,6 @@ fn test_hwpx_save_to_file() {
     let text = document.extract_text();
     assert!(text.contains("Test Document"));
     assert!(text.contains("문서 테스트"));
-
-    std::fs::remove_file(&output_path).ok();
 }
 
 #[test]
@@ -234,7 +239,7 @@ fn test_hwpx_styled_save_and_read() {
         .add_styled_paragraph("빨간색 텍스트", HwpxTextStyle::new().color(0xFF0000))
         .unwrap();
 
-    let output_path = PathBuf::from("test-files/styled_test.hwpx");
+    let (_temp_dir, output_path) = create_temp_file("styled_test.hwpx");
     writer.save_to_file(&output_path).unwrap();
 
     assert!(output_path.exists());
@@ -245,8 +250,6 @@ fn test_hwpx_styled_save_and_read() {
     assert!(text.contains("제목"));
     assert!(text.contains("본문 내용입니다"));
     assert!(text.contains("빨간색 텍스트"));
-
-    std::fs::remove_file(&output_path).ok();
 }
 
 #[test]
@@ -305,7 +308,7 @@ fn test_hwpx_table_save_and_read() {
     table.set_cell(2, 2, "C3");
     writer.add_table(table).unwrap();
 
-    let output_path = PathBuf::from("test-files/table_test.hwpx");
+    let (_temp_dir, output_path) = create_temp_file("table_test.hwpx");
     writer.save_to_file(&output_path).unwrap();
 
     assert!(output_path.exists());
@@ -314,8 +317,6 @@ fn test_hwpx_table_save_and_read() {
     let text = document.extract_text();
 
     assert!(text.contains("테이블 문서"));
-
-    std::fs::remove_file(&output_path).ok();
 }
 
 #[test]
@@ -363,7 +364,7 @@ fn test_hwpx_image_save_and_read() {
     let image = HwpxImage::from_bytes(png_data).expect("Valid PNG");
     writer.add_image(image).unwrap();
 
-    let output_path = PathBuf::from("test-files/image_test.hwpx");
+    let (_temp_dir, output_path) = create_temp_file("image_test.hwpx");
     writer.save_to_file(&output_path).unwrap();
 
     assert!(output_path.exists());
@@ -371,8 +372,6 @@ fn test_hwpx_image_save_and_read() {
     let document = HwpxReader::from_file(&output_path).expect("Failed to read saved file");
     let text = document.extract_text();
     assert!(text.contains("문서에 이미지 포함"));
-
-    std::fs::remove_file(&output_path).ok();
 }
 
 #[test]
@@ -417,7 +416,7 @@ fn test_hwpx_hyperlink_save_and_read() {
     writer.add_paragraph("하이퍼링크 테스트").unwrap();
     writer.add_hyperlink("네이버", "https://naver.com").unwrap();
 
-    let output_path = PathBuf::from("test-files/hyperlink_test.hwpx");
+    let (_temp_dir, output_path) = create_temp_file("hyperlink_test.hwpx");
     writer.save_to_file(&output_path).unwrap();
 
     assert!(output_path.exists());
@@ -427,8 +426,6 @@ fn test_hwpx_hyperlink_save_and_read() {
 
     assert!(text.contains("하이퍼링크 테스트"));
     assert!(text.contains("네이버"));
-
-    std::fs::remove_file(&output_path).ok();
 }
 
 #[test]
@@ -493,7 +490,7 @@ fn test_hwpx_header_footer_save_and_read() {
     writer.add_footer("문서 바닥글");
     writer.add_paragraph("본문 내용입니다.").unwrap();
 
-    let output_path = PathBuf::from("test-files/header_footer_test.hwpx");
+    let (_temp_dir, output_path) = create_temp_file("header_footer_test.hwpx");
     writer.save_to_file(&output_path).unwrap();
 
     assert!(output_path.exists());
