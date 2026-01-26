@@ -76,6 +76,24 @@ impl HwpWriter {
         }
     }
 
+    /// Enable compression for the document streams (DocInfo and BodyText)
+    /// Compressed documents are smaller but some older programs may not read them.
+    pub fn with_compression(mut self, compressed: bool) -> Self {
+        self.document.header.set_compressed(compressed);
+        self
+    }
+
+    /// Set compression for the document
+    pub fn set_compression(&mut self, compressed: bool) -> &mut Self {
+        self.document.header.set_compressed(compressed);
+        self
+    }
+
+    /// Check if compression is enabled
+    pub fn is_compressed(&self) -> bool {
+        self.document.header.is_compressed()
+    }
+
     /// Add a paragraph with plain text
     pub fn add_paragraph(&mut self, text: &str) -> Result<()> {
         let para_text = ParaText {

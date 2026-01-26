@@ -53,4 +53,32 @@ impl ListHeader {
     pub fn is_editable_at_form_mode(&self) -> bool {
         (self.properties & 0x04) != 0
     }
+
+    /// Create a new default ListHeader
+    pub fn new_default() -> Self {
+        Self {
+            paragraph_count: 1,
+            properties: 0,
+            text_width: 0,
+            text_height: 0,
+            padding: [0u8; 8],
+        }
+    }
+
+    /// Serialize to bytes for HWP format
+    pub fn to_bytes(&self) -> Vec<u8> {
+        use byteorder::{LittleEndian, WriteBytesExt};
+        use std::io::Cursor;
+
+        let mut data = Vec::new();
+        let mut writer = Cursor::new(&mut data);
+
+        writer.write_i32::<LittleEndian>(self.paragraph_count).unwrap();
+        writer.write_u32::<LittleEndian>(self.properties).unwrap();
+        writer.write_i32::<LittleEndian>(self.text_width).unwrap();
+        writer.write_i32::<LittleEndian>(self.text_height).unwrap();
+        writer.write_all(&self.padding).unwrap();
+
+        data
+    }
 }
