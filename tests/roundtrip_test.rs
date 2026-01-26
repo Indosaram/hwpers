@@ -1,5 +1,5 @@
 use hwpers::{HwpReader, HwpWriter};
-use hwpers::writer::style::{TextStyle, ListType, ImageFormat};
+use hwpers::writer::style::{TextStyle, StyledText};
 use std::path::PathBuf;
 
 fn test_file_path(name: &str) -> PathBuf {
@@ -165,10 +165,18 @@ fn test_minimal_document_structure() {
 fn test_styled_text_roundtrip() {
     let mut writer = HwpWriter::new();
 
-    // Add styled paragraphs
-    writer.add_styled_paragraph("Bold text", TextStyle::new().bold()).unwrap();
-    writer.add_styled_paragraph("Italic text", TextStyle::new().italic()).unwrap();
-    writer.add_styled_paragraph("Colored text", TextStyle::new().color(0xFF0000)).unwrap();
+    // Add styled paragraphs using StyledText
+    let bold_text = StyledText::new("Bold text".to_string())
+        .add_range(0, 9, TextStyle::new().bold());
+    writer.add_styled_paragraph(&bold_text).unwrap();
+
+    let italic_text = StyledText::new("Italic text".to_string())
+        .add_range(0, 11, TextStyle::new().italic());
+    writer.add_styled_paragraph(&italic_text).unwrap();
+
+    let colored_text = StyledText::new("Colored text".to_string())
+        .add_range(0, 12, TextStyle::new().color(0xFF0000));
+    writer.add_styled_paragraph(&colored_text).unwrap();
 
     let bytes = writer.to_bytes().unwrap();
 
@@ -235,7 +243,7 @@ fn test_table_roundtrip() {
     let mut writer = HwpWriter::new();
     writer.add_paragraph("Table test:").unwrap();
 
-    writer.create_table(2, 2)
+    writer.add_table(2, 2)
         .set_cell(0, 0, "A1")
         .set_cell(0, 1, "B1")
         .set_cell(1, 0, "A2")

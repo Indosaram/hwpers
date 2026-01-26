@@ -475,10 +475,10 @@ fn write_content_paragraph<W: Write>(
     let has_table = paragraph.table_data.is_some();
     let has_picture = paragraph.picture_data.is_some();
     let has_text_box = paragraph.text_box_data.is_some();
-    let has_hyperlinks = !paragraph.hyperlinks.is_empty();
+    let _has_hyperlinks = !paragraph.hyperlinks.is_empty();
 
     // Build PARA_TEXT content
-    let mut text_utf16 = if has_table {
+    let text_utf16 = if has_table {
         // Table marker: 0x0B (table inline char) + 'tbl ' (reversed for little-endian)
         let mut table_text = vec![0x0B, 0x00]; // Extended control marker
         table_text.extend_from_slice(&[0x20, 0x6C, 0x62, 0x74]); // 'tbl ' in UTF-16LE

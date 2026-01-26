@@ -68,7 +68,7 @@ impl ListHeader {
     /// Serialize to bytes for HWP format
     pub fn to_bytes(&self) -> Vec<u8> {
         use byteorder::{LittleEndian, WriteBytesExt};
-        use std::io::Cursor;
+        use std::io::{Cursor, Write};
 
         let mut data = Vec::new();
         let mut writer = Cursor::new(&mut data);
