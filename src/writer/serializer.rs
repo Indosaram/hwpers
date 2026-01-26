@@ -160,31 +160,23 @@ fn serialize_file_header(header: &crate::parser::header::FileHeader) -> Result<V
 }
 
 /// Serialize DocInfo to bytes
+/// Following real Hangul file structure - DOC_PROPERTIES and ID_MAPPINGS at level 0,
+/// other records at level 1
 fn serialize_doc_info(doc_info: &crate::parser::doc_info::DocInfo) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    // Write document properties (always required) - level 0
+    // Write document properties (26 bytes) - level 0
     let props = doc_info
         .properties
         .as_ref()
         .map_or_else(crate::model::document::DocumentProperties::default, |p| {
             p.clone()
         });
-    write_record(
-        &mut writer,
-        0x10,
-        0,
-        &serialize_document_properties(&props)?,
-    )?;
+    write_record(&mut writer, 0x10, 0, &serialize_document_properties(&props)?)?;
 
     // Write ID mappings (required for compatibility) - level 0
     write_record(&mut writer, 0x11, 0, &serialize_id_mappings(doc_info)?)?;
-
-    // Write BinData entries (tag 0x12) - level 1
-    for bin_data in &doc_info.bin_data {
-        write_record(&mut writer, 0x12, 1, &serialize_bin_data_info(bin_data)?)?;
-    }
 
     // Write face names - level 1
     for face_name in &doc_info.face_names {
@@ -226,13 +218,10 @@ fn serialize_doc_info(doc_info: &crate::parser::doc_info::DocInfo) -> Result<Vec
         write_record(&mut writer, 0x1A, 1, &serialize_style(style)?)?;
     }
 
-    // Write COMPATIBLE_DOCUMENT (0x1E) - required for HWP compatibility
-    // Value 0 = current HWP version
-    write_record(&mut writer, 0x1E, 0, &[0u8; 4])?;
-
-    // Write LAYOUT_COMPATIBILITY (0x1F) - required for HWP compatibility
-    // 20 bytes, all zeros = default compatibility
-    write_record(&mut writer, 0x1F, 1, &[0u8; 20])?;
+    // Write BinData entries (tag 0x12) - level 1
+    for bin_data in &doc_info.bin_data {
+        write_record(&mut writer, 0x12, 1, &serialize_bin_data_info(bin_data)?)?;
+    }
 
     Ok(data)
 }
@@ -1299,6 +1288,7 @@ fn serialize_tab_def(tab_def: &crate::model::tab_def::TabDef) -> Result<Vec<u8>>
 
 /// Compress data using raw deflate (no zlib header - HWP format requirement)
 fn compress_data(data: &[u8]) -> Result<Vec<u8>> {
+    // HWP uses raw deflate compression (not zlib)
     let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data)?;
     let compressed_data = encoder.finish()?;

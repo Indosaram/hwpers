@@ -4,8 +4,8 @@ use hwpers::HwpWriter;
 use hwpers::writer::style::{TextStyle, StyledText, ListType};
 
 fn main() {
-    // 1. 기본 문서 생성
-    let mut writer = HwpWriter::new();
+    // 1. 기본 문서 생성 (압축 활성화)
+    let mut writer = HwpWriter::new().with_compression(true);
 
     // 제목
     let title = StyledText::new("hwpers Writer 테스트 문서".to_string())

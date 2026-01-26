@@ -102,21 +102,20 @@ impl FileHeader {
 }
 impl FileHeader {
     /// Create a new default FileHeader for writing
-    /// Uses version 5.0.3.4 and NO compression for maximum compatibility
-    /// (matching hwplib's BlankFileMaker.java)
+    /// Uses version 5.1.1.0 with compression enabled (matches real Hangul files)
     pub fn new_default() -> Self {
         let mut signature = [0u8; 32];
         signature[..17].copy_from_slice(HWP_SIGNATURE);
 
         let mut reserved = [0u8; 216];
         // Reserved offset 4 (FileHeader offset 0x2C) = 0x04
-        // This is required for HWP compatibility
+        // This is present in real Hangul-created files
         reserved[4] = 0x04;
 
         Self {
             signature,
-            version: 0x05000304, // HWP 5.0.3.4 (compatible version)
-            flags: 0x00,         // NO compression for compatibility
+            version: 0x05010100, // HWP 5.1.1.0 (matches real Hangul files)
+            flags: 0x01,         // Compression enabled (default for Hangul)
             reserved,
         }
     }
