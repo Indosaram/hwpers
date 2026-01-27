@@ -135,7 +135,18 @@ impl ParaText {
                     0x0000 => {
                         // Skip null characters
                     }
-                    0x0001..=0x0008 => {
+                    0x0001 | 0x0002 => {
+                        // Skip control characters, but also skip 6 following u16 (12 bytes)
+                        // These are inline control markers with 12 bytes of data
+                        i += 6; // Skip the control data
+                    }
+                    0x0003 | 0x0004 => {
+                        // Field start (0x0003) and field end (0x0004) markers
+                        // Used for hyperlinks - skip the marker and 7 u16 control data
+                        // Format: ctrl_id(4) + reserved(8) + indicator(2) = 14 bytes = 7 u16
+                        i += 7; // Skip the control data (14 bytes = 7 u16)
+                    }
+                    0x0005..=0x0008 => {
                         // Skip other control characters
                     }
                     0x0009 => {

@@ -162,11 +162,18 @@ fn serialize_file_header(header: &crate::parser::header::FileHeader) -> Result<V
 /// Serialize DocInfo to bytes
 /// Following real Hangul file structure - DOC_PROPERTIES and ID_MAPPINGS at level 0,
 /// other records at level 1
+///
+/// CRITICAL: Record order must match ID_MAPPINGS declaration order!
+/// ID_MAPPINGS declares counts in this order: BinData, FaceNames(x7), BorderFill, CharShape,
+/// TabDef, Numbering, Bullet, ParaShape, Style, MemoShape, TrackChangeAuthor, TrackChange
+/// The parser expects records to appear in EXACTLY this order after ID_MAPPINGS.
 fn serialize_doc_info(doc_info: &crate::parser::doc_info::DocInfo) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    // Write document properties (26 bytes) - level 0
+    // === Level 0 records ===
+
+    // 1. DOC_PROPERTIES (0x10) - level 0
     let props = doc_info
         .properties
         .as_ref()
@@ -175,53 +182,67 @@ fn serialize_doc_info(doc_info: &crate::parser::doc_info::DocInfo) -> Result<Vec
         });
     write_record(&mut writer, 0x10, 0, &serialize_document_properties(&props)?)?;
 
-    // Write ID mappings (required for compatibility) - level 0
+    // 2. ID_MAPPINGS (0x11) - level 0
+    // This declares the COUNT of each record type that follows
     write_record(&mut writer, 0x11, 0, &serialize_id_mappings(doc_info)?)?;
 
-    // Write face names - level 1
+    // === Level 1 records (MUST follow ID_MAPPINGS order!) ===
+
+    // 3. BinData (0x12) - MUST be immediately after ID_MAPPINGS!
+    // The parser reads BinData count first and expects that many BinData records next
+    for bin_data in &doc_info.bin_data {
+        write_record(&mut writer, 0x12, 1, &serialize_bin_data_info(bin_data)?)?;
+    }
+
+    // 4. FaceNames (0x13)
     for face_name in &doc_info.face_names {
         write_record(&mut writer, 0x13, 1, &serialize_face_name(face_name)?)?;
     }
 
-    // Write border fills - level 1
+    // 5. BorderFills (0x14)
     for border_fill in &doc_info.border_fills {
         write_record(&mut writer, 0x14, 1, &serialize_border_fill(border_fill)?)?;
     }
 
-    // Write character shapes - level 1
+    // 6. CharShapes (0x15)
     for char_shape in &doc_info.char_shapes {
         write_record(&mut writer, 0x15, 1, &serialize_char_shape(char_shape)?)?;
     }
 
-    // Write tab definitions - level 1
+    // 7. TabDefs (0x16)
     for tab_def in &doc_info.tab_defs {
         write_record(&mut writer, 0x16, 1, &serialize_tab_def(tab_def)?)?;
     }
 
-    // Write numbering definitions (tag 0x17) - level 1
+    // 8. Numbering (0x17)
     for numbering in &doc_info.numberings {
         write_record(&mut writer, 0x17, 1, &numbering.to_bytes())?;
     }
 
-    // Write bullet definitions (tag 0x18) - level 1
+    // 9. Bullet (0x18)
     for bullet in &doc_info.bullets {
         write_record(&mut writer, 0x18, 1, &bullet.to_bytes())?;
     }
 
-    // Write paragraph shapes - level 1
+    // 10. ParaShapes (0x19)
     for para_shape in &doc_info.para_shapes {
         write_record(&mut writer, 0x19, 1, &serialize_para_shape(para_shape)?)?;
     }
 
-    // Write styles - level 1
+    // 11. Styles (0x1A)
     for style in &doc_info.styles {
         write_record(&mut writer, 0x1A, 1, &serialize_style(style)?)?;
     }
 
-    // Write BinData entries (tag 0x12) - level 1
-    for bin_data in &doc_info.bin_data {
-        write_record(&mut writer, 0x12, 1, &serialize_bin_data_info(bin_data)?)?;
-    }
+    // === Compatibility records (required for HWP 5.0.2.1+) ===
+
+    // 12. COMPATIBLE_DOCUMENT (0x1E) - level 0
+    // Indicates document compatibility settings (4 bytes, all zeros = default)
+    write_record(&mut writer, 0x1E, 0, &[0u8; 4])?;
+
+    // 13. LAYOUT_COMPATIBILITY (0x1F) - level 1
+    // Layout compatibility flags (20 bytes, all zeros = default)
+    write_record(&mut writer, 0x1F, 1, &[0u8; 20])?;
 
     Ok(data)
 }
@@ -251,11 +272,33 @@ fn serialize_body_text(body_text: &crate::parser::body_text::BodyText) -> Result
             }
         }
 
-        // Then write content paragraphs
+        // Collect indices of paragraphs that are table cell content
+        // These will be written inside serialize_table_control instead of main loop
+        let mut cell_para_indices = std::collections::HashSet::new();
+        for (i, paragraph) in section.paragraphs.iter().enumerate() {
+            if let Some(table) = &paragraph.table_data {
+                // Find all cell paragraphs by matching instance_id with cell's list_header_id
+                for cell in table.cells_by_row() {
+                    for (j, p) in section.paragraphs.iter().enumerate() {
+                        if p.instance_id == cell.list_header_id && j != i {
+                            cell_para_indices.insert(j);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Write content paragraphs
         let para_count = section.paragraphs.len();
         for (i, paragraph) in section.paragraphs.iter().enumerate() {
-            let is_last = i == para_count - 1;
-            write_content_paragraph(&mut writer, paragraph, is_last)?;
+            // Skip paragraphs that are table cell content (written inside table control)
+            if cell_para_indices.contains(&i) {
+                continue;
+            }
+
+            let is_last = i == para_count - 1 ||
+                          (i < para_count - 1 && cell_para_indices.contains(&(para_count - 1)));
+            write_content_paragraph(&mut writer, paragraph, is_last, &section.paragraphs)?;
         }
     }
 
@@ -456,6 +499,7 @@ fn write_content_paragraph<W: Write>(
     writer: &mut W,
     paragraph: &crate::model::paragraph::Paragraph,
     is_last: bool,
+    all_paragraphs: &[crate::model::paragraph::Paragraph],
 ) -> Result<()> {
     // Determine control_mask based on paragraph content
     let control_mask = compute_control_mask(paragraph);
@@ -464,7 +508,7 @@ fn write_content_paragraph<W: Write>(
     let has_table = paragraph.table_data.is_some();
     let has_picture = paragraph.picture_data.is_some();
     let has_text_box = paragraph.text_box_data.is_some();
-    let _has_hyperlinks = !paragraph.hyperlinks.is_empty();
+    let has_hyperlinks = !paragraph.hyperlinks.is_empty();
 
     // Build PARA_TEXT content
     let text_utf16 = if has_table {
@@ -488,6 +532,14 @@ fn write_content_paragraph<W: Write>(
         tb_text.extend_from_slice(&[0x00; 8]); // 8 bytes reserved
         tb_text.extend_from_slice(&[0x0D, 0x00]); // paragraph end marker
         tb_text
+    } else if has_hyperlinks {
+        // Text with hyperlinks - use field markers
+        let text_content = paragraph
+            .text
+            .as_ref()
+            .map(|t| t.content.as_str())
+            .unwrap_or("");
+        build_para_text_with_hyperlinks(text_content, &paragraph.hyperlinks)
     } else {
         // Regular text content
         let text_content = paragraph
@@ -502,8 +554,8 @@ fn write_content_paragraph<W: Write>(
 
     let char_count = (text_utf16.len() / 2) as u32;
 
-    // Calculate range tag count for hyperlinks
-    let range_tag_count = paragraph.hyperlinks.len() as u16;
+    // Range tag count - hyperlinks use field controls, not range tags
+    let range_tag_count: u16 = 0;
 
     // PARA_HEADER
     let mut para_header = Vec::new();
@@ -551,31 +603,36 @@ fn write_content_paragraph<W: Write>(
     ];
     write_record(writer, 0x45, 1, &line_seg)?;
 
-    // PARA_RANGE_TAG for hyperlinks (tag 0x54)
+    // Write CTRL_HEADER for hyperlinks (klh% field control)
+    // Hyperlinks use CTRL_HEADER (0x47) with 'klh%' control ID, not PARA_RANGE_TAG
     for hyperlink in &paragraph.hyperlinks {
-        let range_tag_data = serialize_para_range_tag_hyperlink(hyperlink)?;
-        write_record(writer, 0x54, 1, &range_tag_data)?;
+        let hyperlink_ctrl_data = serialize_hyperlink_ctrl_header(hyperlink)?;
+        write_record(writer, 0x47, 1, &hyperlink_ctrl_data)?;
     }
 
-    // Write CTRL_HEADER and control-specific data
+    // Write CTRL_HEADER and control-specific data for other controls
     if let Some(ctrl_header) = &paragraph.ctrl_header {
-        // Serialize control header
-        let ctrl_header_data = serialize_ctrl_header(ctrl_header)?;
-        write_record(writer, 0x47, 1, &ctrl_header_data)?;
-
         // Serialize control-specific data
         if let Some(table) = &paragraph.table_data {
-            serialize_table_control(writer, table)?;
-        }
-
-        if let Some(picture) = &paragraph.picture_data {
+            // Table uses extended CTRL_HEADER format
+            let table_ctrl_header = serialize_table_ctrl_header(ctrl_header, table)?;
+            write_record(writer, 0x47, 1, &table_ctrl_header)?;
+            serialize_table_control(writer, table, all_paragraphs)?;
+        } else if let Some(picture) = &paragraph.picture_data {
+            // Non-table controls use basic CTRL_HEADER
+            let ctrl_header_data = serialize_ctrl_header(ctrl_header)?;
+            write_record(writer, 0x47, 1, &ctrl_header_data)?;
             let picture_data = serialize_picture_control(picture)?;
-            write_record(writer, 0x48, 2, &picture_data)?; // ShapeComponent tag
-        }
-
-        if let Some(text_box) = &paragraph.text_box_data {
+            write_record(writer, 0x48, 2, &picture_data)?;
+        } else if let Some(text_box) = &paragraph.text_box_data {
+            let ctrl_header_data = serialize_ctrl_header(ctrl_header)?;
+            write_record(writer, 0x47, 1, &ctrl_header_data)?;
             let text_box_data = serialize_text_box_control(text_box)?;
-            write_record(writer, 0x48, 2, &text_box_data)?; // ShapeComponent tag
+            write_record(writer, 0x48, 2, &text_box_data)?;
+        } else {
+            // Generic control header
+            let ctrl_header_data = serialize_ctrl_header(ctrl_header)?;
+            write_record(writer, 0x47, 1, &ctrl_header_data)?;
         }
     }
 
@@ -586,27 +643,23 @@ fn write_content_paragraph<W: Write>(
 fn compute_control_mask(paragraph: &crate::model::paragraph::Paragraph) -> u32 {
     let mut mask = paragraph.control_mask;
 
-    // Bit 0: Extended control present (table, picture, textbox, etc.)
+    // Bit 11 (0x800): Extended control present (table, picture, textbox, etc.)
     if paragraph.table_data.is_some()
         || paragraph.picture_data.is_some()
-        || paragraph.text_box_data.is_some() {
-        mask |= 0x01;
+        || paragraph.text_box_data.is_some()
+    {
+        mask |= 0x800;
     }
 
-    // Bit 1: Ctrl header present
-    if paragraph.ctrl_header.is_some() {
-        mask |= 0x02;
-    }
-
-    // Bit 4: Has hyperlinks/range tags
+    // Bit 2 (0x04): Has field controls (hyperlinks use field markers 0x0003/0x0004)
     if !paragraph.hyperlinks.is_empty() {
-        mask |= 0x10;
+        mask |= 0x04;
     }
 
     mask
 }
 
-/// Serialize control header
+/// Serialize control header (basic version for non-table controls)
 fn serialize_ctrl_header(ctrl_header: &crate::model::CtrlHeader) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
@@ -618,84 +671,243 @@ fn serialize_ctrl_header(ctrl_header: &crate::model::CtrlHeader) -> Result<Vec<u
     Ok(data)
 }
 
+/// Serialize extended CTRL_HEADER for tables (48 bytes to match real HWP)
+/// Based on real HWP file analysis
+fn serialize_table_ctrl_header(
+    ctrl_header: &crate::model::CtrlHeader,
+    table: &crate::model::control::Table,
+) -> Result<Vec<u8>> {
+    let mut data = Vec::new();
+    let mut writer = Cursor::new(&mut data);
+
+    // ctrl_id: 'tbl ' (4 bytes)
+    writer.write_u32::<LittleEndian>(ctrl_header.ctrl_id)?;
+
+    // Properties/flags (4 bytes) - based on real HWP: 0x082a2311
+    // Bit flags for table behavior
+    let properties: u32 = 0x082a2310; // Table properties from real HWP
+    writer.write_u32::<LittleEndian>(properties)?;
+
+    // Reserved/unknown (8 bytes of zeros)
+    writer.write_u64::<LittleEndian>(0)?;
+
+    // Table dimensions - width and height in HWP units
+    let total_width = table.cols as u32 * 5000; // Approx width
+    let total_height = table.rows as u32 * 1000; // Approx height
+    writer.write_u32::<LittleEndian>(total_width)?;
+    writer.write_u32::<LittleEndian>(total_height)?;
+
+    // Unknown/reserved (4 bytes)
+    writer.write_u32::<LittleEndian>(0)?;
+
+    // Outer margins (left, right, top, bottom) - each u16
+    // These are margins around the entire table
+    writer.write_u16::<LittleEndian>(140)?; // left outer margin
+    writer.write_u16::<LittleEndian>(140)?; // right outer margin
+    writer.write_u16::<LittleEndian>(140)?; // top outer margin
+    writer.write_u16::<LittleEndian>(140)?; // bottom outer margin
+
+    // Instance ID or reserved (4 bytes)
+    writer.write_u32::<LittleEndian>(0)?;
+
+    // Remaining padding (8 bytes to reach 48 total)
+    writer.write_u64::<LittleEndian>(0)?;
+
+    Ok(data)
+}
+
 /// Serialize table control (CTRL_HEADER tag 0x47 followed by table-specific data)
+/// Based on real HWP file analysis:
+/// - CTRL_HEADER (0x47) level 1 - extended header with table properties
+/// - TABLE (0x4D) level 2 - table metadata (rows, cols, margins, row heights)
+/// - LIST_HEADER (0x48) level 2 per cell - cell container
+/// - Cell content paragraphs follow at level 2/3
 fn serialize_table_control<W: Write>(
     writer: &mut W,
     table: &crate::model::control::Table,
+    all_paragraphs: &[crate::model::paragraph::Paragraph],
 ) -> Result<()> {
-    // Write LIST_HEADER for table (tag 0x4D)
-    let mut list_header = Vec::new();
-    let mut lh_writer = Cursor::new(&mut list_header);
-
-    // List header properties
-    lh_writer.write_u32::<LittleEndian>(table.rows as u32)?; // numPara
-    lh_writer.write_u32::<LittleEndian>(0)?; // properties
-    lh_writer.write_u32::<LittleEndian>(0)?; // textWidth
-    lh_writer.write_u32::<LittleEndian>(0)?; // textHeight
-
-    write_record(writer, 0x4D, 2, &list_header)?;
-
-    // Write TABLE control data (tag 0x4E)
+    // Write TABLE record (tag 0x4D) - table metadata
+    // Based on real HWP format analysis
     let mut table_data = Vec::new();
     let mut td_writer = Cursor::new(&mut table_data);
 
-    td_writer.write_u32::<LittleEndian>(table.properties)?;
+    // Table properties (flags)
+    // Real HWP uses 0x04000004 for multi-row tables, 0x06000006 for single-row
+    let flags: u32 = if table.rows == 1 {
+        0x06000006
+    } else {
+        0x04000004
+    };
+    td_writer.write_u32::<LittleEndian>(flags)?;
+
+    // Row count (u16) and Column count (u16)
     td_writer.write_u16::<LittleEndian>(table.rows)?;
     td_writer.write_u16::<LittleEndian>(table.cols)?;
-    td_writer.write_u16::<LittleEndian>(table.cell_spacing)?;
-    td_writer.write_i32::<LittleEndian>(table.left_margin)?;
-    td_writer.write_i32::<LittleEndian>(table.right_margin)?;
-    td_writer.write_i32::<LittleEndian>(table.top_margin)?;
-    td_writer.write_i32::<LittleEndian>(table.bottom_margin)?;
 
-    // Row sizes (placeholder - one per row)
+    // Cell spacing
+    td_writer.write_u16::<LittleEndian>(table.cell_spacing)?;
+
+    // Margins (left, right, top, bottom) - each i16
+    td_writer.write_i16::<LittleEndian>(table.left_margin as i16)?;
+    td_writer.write_i16::<LittleEndian>(table.right_margin as i16)?;
+    td_writer.write_i16::<LittleEndian>(table.top_margin as i16)?;
+    td_writer.write_i16::<LittleEndian>(table.bottom_margin as i16)?;
+
+    // Row heights (one u16 per row)
     for _ in 0..table.rows {
-        td_writer.write_u32::<LittleEndian>(1000)?; // Default row height
+        td_writer.write_u16::<LittleEndian>(0)?; // 0 = auto height
     }
 
     // Border fill ID
     td_writer.write_u16::<LittleEndian>(0)?;
 
-    // Zone info
+    // Zone info count (u16) - always 0 for simple tables
     td_writer.write_u16::<LittleEndian>(0)?;
 
-    write_record(writer, 0x4E, 2, &table_data)?;
+    write_record(writer, 0x4D, 2, &table_data)?;
 
-    // Write cells
+    // Write LIST_HEADER (0x48) for each cell, followed by cell content at correct levels
     for cell in table.cells_by_row() {
-        write_table_cell(writer, cell)?;
+        write_table_cell_list_header(writer, cell)?;
+
+        // Find and write the cell content paragraph at level 2
+        // Cell paragraphs are linked by matching instance_id with cell's list_header_id
+        for paragraph in all_paragraphs {
+            if paragraph.instance_id == cell.list_header_id && paragraph.text.is_some() {
+                write_cell_content_paragraph(writer, paragraph)?;
+                break; // Only one paragraph per cell
+            }
+        }
     }
 
     Ok(())
 }
 
-/// Write a table cell
-fn write_table_cell<W: Write>(
+/// Write a table cell as LIST_HEADER (tag 0x48)
+/// This is the correct format based on real HWP file analysis
+fn write_table_cell_list_header<W: Write>(
     writer: &mut W,
     cell: &crate::model::control::TableCell,
 ) -> Result<()> {
-    // CELL (tag 0x4F) - List header for cell
     let mut cell_data = Vec::new();
     let mut c_writer = Cursor::new(&mut cell_data);
 
-    // List header part
-    c_writer.write_u32::<LittleEndian>(1)?; // numPara (at least 1)
-    c_writer.write_u32::<LittleEndian>(0)?; // properties
-    c_writer.write_u32::<LittleEndian>(cell.text_width)?;
-    c_writer.write_u32::<LittleEndian>(cell.height)?;
+    // LIST_HEADER structure for table cell
+    // Based on real HWP: 47 bytes typically
 
-    // Cell-specific data
+    // numPara (u32) - number of paragraphs in this cell
+    c_writer.write_u32::<LittleEndian>(1)?;
+
+    // properties (u32)
+    c_writer.write_u32::<LittleEndian>(0x00000020)?;
+
+    // Unknown/reserved (u32)
+    c_writer.write_u32::<LittleEndian>(0)?;
+
+    // Cell address: col (u16), row (u16)
+    // cell_address is (row, col) tuple
+    c_writer.write_u16::<LittleEndian>(cell.cell_address.1)?; // col
+    c_writer.write_u16::<LittleEndian>(cell.cell_address.0)?; // row
+
+    // Col span and row span (u16 each)
     c_writer.write_u16::<LittleEndian>(cell.col_span)?;
     c_writer.write_u16::<LittleEndian>(cell.row_span)?;
+
+    // Cell width and height (u32 each)
     c_writer.write_u32::<LittleEndian>(cell.width)?;
     c_writer.write_u32::<LittleEndian>(cell.height)?;
+
+    // Margins (u16 each): left, right, top, bottom
     c_writer.write_u16::<LittleEndian>(cell.left_margin)?;
     c_writer.write_u16::<LittleEndian>(cell.right_margin)?;
     c_writer.write_u16::<LittleEndian>(cell.top_margin)?;
     c_writer.write_u16::<LittleEndian>(cell.bottom_margin)?;
+
+    // Border fill ID (u16)
     c_writer.write_u16::<LittleEndian>(cell.border_fill_id)?;
 
-    write_record(writer, 0x4F, 3, &cell_data)?;
+    // Text width (u32) - calculated from cell width minus margins
+    let text_width = cell.text_width.max(cell.width.saturating_sub(
+        (cell.left_margin as u32) + (cell.right_margin as u32),
+    ));
+    c_writer.write_u32::<LittleEndian>(text_width)?;
+
+    // Field name length (u16) - 0 for no field name
+    c_writer.write_u16::<LittleEndian>(0)?;
+
+    // Unknown padding bytes to match real HWP structure (47 bytes total)
+    // Additional 3 bytes of padding
+    c_writer.write_u8(0)?;
+    c_writer.write_u8(0)?;
+    c_writer.write_u8(0)?;
+
+    write_record(writer, 0x48, 2, &cell_data)?;
+
+    Ok(())
+}
+
+/// Write table cell content paragraph at level 2
+fn write_cell_content_paragraph<W: Write>(
+    writer: &mut W,
+    paragraph: &crate::model::paragraph::Paragraph,
+) -> Result<()> {
+    let text_content = paragraph
+        .text
+        .as_ref()
+        .map(|t| t.content.as_str())
+        .unwrap_or("");
+
+    let text_utf16 = string_to_utf16le(text_content);
+    let mut text_with_marker = text_utf16.clone();
+    text_with_marker.extend_from_slice(&[0x0D, 0x00]); // paragraph end marker
+
+    let char_count = (text_with_marker.len() / 2) as u32;
+    let char_count_flags = char_count | 0x80000000; // lastInList flag
+
+    // PARA_HEADER (tag 0x42, level 2)
+    let mut para_header = Vec::new();
+    {
+        let mut w = Cursor::new(&mut para_header);
+        w.write_u32::<LittleEndian>(char_count_flags)?;
+        w.write_u32::<LittleEndian>(0)?; // control_mask
+        w.write_u16::<LittleEndian>(paragraph.para_shape_id)?;
+        w.write_u8(paragraph.style_id)?;
+        w.write_u8(0)?; // column_type
+        w.write_u16::<LittleEndian>(paragraph.char_shape_count.max(1))?;
+        w.write_u16::<LittleEndian>(0)?; // rangeTagCount
+        w.write_u16::<LittleEndian>(1)?; // lineAlignCount
+        w.write_u32::<LittleEndian>(paragraph.instance_id)?;
+        w.write_u16::<LittleEndian>(0)?; // isMergedByTrack
+    }
+    write_record(writer, 0x42, 2, &para_header)?;
+
+    // PARA_TEXT (tag 0x43, level 3)
+    write_record(writer, 0x43, 3, &text_with_marker)?;
+
+    // PARA_CHAR_SHAPE (tag 0x44, level 3)
+    if let Some(char_shapes) = &paragraph.char_shapes {
+        let char_shape_data = serialize_para_char_shapes(char_shapes)?;
+        write_record(writer, 0x44, 3, &char_shape_data)?;
+    } else {
+        let default_char_shape: [u8; 8] = [0; 8];
+        write_record(writer, 0x44, 3, &default_char_shape)?;
+    }
+
+    // PARA_LINE_SEG (tag 0x45, level 3)
+    #[rustfmt::skip]
+    let line_seg: [u8; 36] = [
+        0x00, 0x00, 0x00, 0x00, // textStartPos
+        0x00, 0x00, 0x00, 0x00, // lineVerticalPos
+        0xE8, 0x03, 0x00, 0x00, // lineHeight = 1000
+        0xE8, 0x03, 0x00, 0x00, // textHeight = 1000
+        0x52, 0x03, 0x00, 0x00, // baseLineGap = 850
+        0x58, 0x02, 0x00, 0x00, // lineSpacing = 600
+        0x00, 0x00, 0x00, 0x00, // startMargin
+        0x00, 0x27, 0x00, 0x00, // lineWidth
+        0x00, 0x00, 0x06, 0x00, // flags
+    ];
+    write_record(writer, 0x45, 3, &line_seg)?;
 
     Ok(())
 }
@@ -839,58 +1051,109 @@ fn serialize_para_char_shapes(
     Ok(data)
 }
 
-/// Serialize hyperlink as ParaRangeTag (0x54)
-fn serialize_para_range_tag_hyperlink(
+/// Serialize hyperlink CTRL_HEADER with 'klh%' control ID
+/// Based on analysis of HWP files created by Hancom Hangeul
+fn serialize_hyperlink_ctrl_header(
     hyperlink: &crate::model::hyperlink::Hyperlink,
 ) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    // ParaRangeTag structure for hyperlink (based on actual file analysis)
-    // Control ID for hyperlink: 'gsh ' (0x20687367 in little-endian)
-    writer.write_u32::<LittleEndian>(0x20687367)?; // 'gsh '
+    // Control ID: 'klh%' (0x25686C6B in little-endian)
+    // This is the Field Control for hyperlinks in modern HWP
+    writer.write_u32::<LittleEndian>(0x25686C6B)?; // 'klh%'
 
-    // Fixed header (28 bytes of mostly zeros/fixed values)
-    for _ in 0..7 {
-        writer.write_u32::<LittleEndian>(0)?;
-    }
+    // Flags (4 bytes) - 0x00009000 is the standard value
+    writer.write_u32::<LittleEndian>(0x00009000)?;
 
-    // Hyperlink data starts at offset 0x20 (32 bytes)
-    // Hyperlink type (u16)
-    writer.write_u16::<LittleEndian>(hyperlink.hyperlink_type as u16)?;
+    // Reserved byte
+    writer.write_u8(0x00)?;
 
-    // Flags (typically 0x000001FF)
-    let mut flags = 0x000001FF;
-    if hyperlink.open_in_new_window {
-        flags |= 0x00000200;
-    }
-    writer.write_u16::<LittleEndian>((flags & 0xFFFF) as u16)?; // Lower 16 bits
-    writer.write_u16::<LittleEndian>((flags >> 16) as u16)?; // Upper 16 bits
+    // Build URL command string: "<URL>;<new_window>;<param2>;<param3>;"
+    let new_window_flag = if hyperlink.open_in_new_window { "1" } else { "0" };
+    let command = format!("{};{};0;0;", hyperlink.target_url, new_window_flag);
 
-    // Color info (default: 0x80008000)
-    writer.write_u32::<LittleEndian>(0x80008000)?;
+    // URL string length (character count, u16 little-endian)
+    let char_count = command.chars().count() as u16;
+    writer.write_u16::<LittleEndian>(char_count)?;
 
-    // Write strings as UTF-16LE with length prefix
-    // Display text
-    let display_text_utf16 = string_to_utf16le(&hyperlink.display_text);
-    writer.write_u16::<LittleEndian>((display_text_utf16.len() / 2) as u16)?;
-    writer.write_all(&display_text_utf16)?;
+    // URL string (UTF-16LE)
+    let url_utf16 = string_to_utf16le(&command);
+    writer.write_all(&url_utf16)?;
 
-    // Target URL
-    let target_url_utf16 = string_to_utf16le(&hyperlink.target_url);
-    writer.write_u16::<LittleEndian>((target_url_utf16.len() / 2) as u16)?;
-    writer.write_all(&target_url_utf16)?;
-
-    // Tooltip (optional)
-    if let Some(tooltip) = &hyperlink.tooltip {
-        let tooltip_utf16 = string_to_utf16le(tooltip);
-        writer.write_u16::<LittleEndian>((tooltip_utf16.len() / 2) as u16)?;
-        writer.write_all(&tooltip_utf16)?;
-    } else {
-        writer.write_u16::<LittleEndian>(0)?; // No tooltip
-    }
+    // NULL padding (8 bytes for alignment)
+    writer.write_all(&[0u8; 8])?;
 
     Ok(data)
+}
+
+/// Build PARA_TEXT with hyperlink field markers
+/// Hyperlinks use field start (0x0003) and field end (0x0004) markers
+fn build_para_text_with_hyperlinks(
+    text_content: &str,
+    hyperlinks: &[crate::model::hyperlink::Hyperlink],
+) -> Vec<u8> {
+    let mut result = Vec::new();
+
+    if hyperlinks.is_empty() {
+        // No hyperlinks - just regular text
+        result.extend_from_slice(&string_to_utf16le(text_content));
+        result.extend_from_slice(&[0x0D, 0x00]); // paragraph end marker
+        return result;
+    }
+
+    // Sort hyperlinks by start position
+    let mut sorted_hyperlinks: Vec<_> = hyperlinks.iter().collect();
+    sorted_hyperlinks.sort_by_key(|h| h.start_position);
+
+    let chars: Vec<char> = text_content.chars().collect();
+    let mut current_pos = 0u32;
+
+    for hyperlink in sorted_hyperlinks {
+        let start = hyperlink.start_position as usize;
+        let end = start + hyperlink.length as usize;
+
+        // Write text before hyperlink
+        if current_pos < start as u32 {
+            let before_text: String = chars[current_pos as usize..start].iter().collect();
+            result.extend_from_slice(&string_to_utf16le(&before_text));
+        }
+
+        // Field start marker (0x0003) + 14 bytes control data (16 bytes total)
+        // Format: char_code(2) + ctrl_id(4) + reserved(8) + field_indicator(2)
+        result.extend_from_slice(&[0x03, 0x00]); // Field start
+        result.extend_from_slice(&[0x6B, 0x6C, 0x68, 0x25]); // 'klh%' control ID
+        result.extend_from_slice(&[0x00; 8]); // 8 bytes reserved
+        result.extend_from_slice(&[0x03, 0x00]); // Field indicator (repeats field code)
+
+        // Hyperlink display text
+        let link_text: String = if end <= chars.len() {
+            chars[start..end].iter().collect()
+        } else {
+            hyperlink.display_text.clone()
+        };
+        result.extend_from_slice(&string_to_utf16le(&link_text));
+
+        // Field end marker (0x0004) + 14 bytes control data (16 bytes total)
+        // Format: char_code(2) + ctrl_id(4) + reserved(8) + field_indicator(2)
+        result.extend_from_slice(&[0x04, 0x00]); // Field end
+        result.extend_from_slice(&[0x6B, 0x6C, 0x68, 0x00]); // 'klh\0' (end marker differs from start)
+        result.extend_from_slice(&[0x00; 8]); // 8 bytes reserved
+        result.extend_from_slice(&[0x04, 0x00]); // Field indicator (repeats field code)
+
+        current_pos = end as u32;
+    }
+
+    // Write remaining text after last hyperlink
+    if (current_pos as usize) < chars.len() {
+        let after_text: String = chars[current_pos as usize..].iter().collect();
+        result.extend_from_slice(&string_to_utf16le(&after_text));
+    }
+
+    // Paragraph end marker
+    result.extend_from_slice(&[0x0D, 0x00]);
+
+    result
 }
 
 /// Serialize page definition (0x57)
@@ -1179,9 +1442,8 @@ fn serialize_char_shape(char_shape: &crate::model::char_shape::CharShape) -> Res
     writer.write_u32::<LittleEndian>(char_shape.shade_color)?;
     writer.write_u32::<LittleEndian>(char_shape.shadow_color)?;
     writer.write_u16::<LittleEndian>(char_shape.border_fill_id)?;
-
-    // Reserved bytes (needed for 72-byte size)
-    writer.write_u16::<LittleEndian>(0)?;
+    // strike_line_color for HWP 5.0.3.0+ (we use 5.1.1.0)
+    writer.write_u32::<LittleEndian>(char_shape.strike_line_color)?;
 
     Ok(data)
 }
@@ -1275,12 +1537,18 @@ fn serialize_tab_def(tab_def: &crate::model::tab_def::TabDef) -> Result<Vec<u8>>
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
+    // Properties (4 bytes)
     writer.write_u32::<LittleEndian>(tab_def.properties)?;
 
+    // Tab count (4 bytes) - required field per hwplib
+    writer.write_u32::<LittleEndian>(tab_def.tabs.len() as u32)?;
+
+    // Each tab: position (4) + tab_type (1) + leader_type (1) + reserved (2) = 8 bytes
     for tab in &tab_def.tabs {
         writer.write_u32::<LittleEndian>(tab.position)?;
         writer.write_u8(tab.tab_type)?;
         writer.write_u8(tab.leader_type)?;
+        writer.write_u16::<LittleEndian>(0)?; // Reserved 2 bytes per hwplib
     }
 
     Ok(data)
