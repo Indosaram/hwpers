@@ -17,6 +17,7 @@ pub struct CharShape {
     pub shade_color: u32,
     pub shadow_color: u32,
     pub border_fill_id: u16,
+    pub strike_line_color: u32,
 }
 
 impl CharShape {
@@ -98,6 +99,11 @@ impl CharShape {
             shade_color: reader.read_u32()?,
             shadow_color: reader.read_u32()?,
             border_fill_id: reader.read_u16()?,
+            strike_line_color: if reader.remaining() >= 4 {
+                reader.read_u32()?
+            } else {
+                0x000000
+            },
         })
     }
 }
@@ -119,6 +125,7 @@ impl CharShape {
             shade_color: 0xFFFFFF,  // White shade
             shadow_color: 0x808080, // Gray shadow
             border_fill_id: 0,
+            strike_line_color: 0x000000,
         }
     }
 }

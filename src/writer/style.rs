@@ -116,6 +116,7 @@ impl TextStyle {
             shade_color: self.background_color.unwrap_or(0xFFFFFF),
             shadow_color: 0x808080,
             border_fill_id: 0,
+            strike_line_color: 0x000000,
         }
     }
 }

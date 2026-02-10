@@ -1,0 +1,12 @@
+[package]
+name = "hwpers-python"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "_hwpers"
+crate-type = ["cdylib"]
+
+[dependencies]
+hwpers = { path = ".." }
+pyo3 = { version = "0.22", features = ["extension-module"] }

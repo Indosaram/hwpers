@@ -119,6 +119,7 @@ impl HwpxTextStyle {
             shade_color: 0xFFFFFF,
             shadow_color: 0x808080,
             border_fill_id: 0,
+            strike_line_color: 0x000000,
         }
     }
 }

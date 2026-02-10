@@ -1,4 +1,13 @@
 /target
 test-files
+*.hwp
 
 .serena
+.DS_Store
+
+# hwpers-python
+hwpers-python/.venv/
+hwpers-python/target/
+hwpers-python/.pytest_cache/
+__pycache__/
+*.pyc
