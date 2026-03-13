@@ -1,3 +1,35 @@
+
+<div align="right">
+  <details>
+    <summary >🌐 Language</summary>
+    <div>
+      <div align="center">
+        <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=en">English</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=zh-CN">简体中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=zh-TW">繁體中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=ja">日本語</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=ko">한국어</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=hi">हिन्दी</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=th">ไทย</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=fr">Français</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=de">Deutsch</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=es">Español</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=it">Italiano</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=ru">Русский</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=pt">Português</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=nl">Nederlands</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=pl">Polski</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=ar">العربية</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=fa">فارسی</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=tr">Türkçe</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=vi">Tiếng Việt</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=id">Bahasa Indonesia</a>
+        | <a href="https://openaitx.github.io/view.html?user=Indosaram&project=hwpers&lang=as">অসমীয়া</
+      </div>
+    </div>
+  </details>
+</div>
+
 # hwpers
 
 [![Crates.io](https://img.shields.io/crates/v/hwpers.svg)](https://crates.io/crates/hwpers)
