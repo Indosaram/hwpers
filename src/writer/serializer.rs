@@ -376,7 +376,14 @@ fn write_content_paragraph<W: Write>(
     paragraph: &crate::model::paragraph::Paragraph,
     is_last: bool,
 ) -> Result<()> {
-    // Get text content
+    if let Some(ref table) = paragraph.table_data {
+        return write_table_paragraph(writer, table, is_last);
+    }
+
+    if let Some(ref picture) = paragraph.picture_data {
+        return write_picture_paragraph(writer, picture, is_last);
+    }
+
     let text_content = paragraph
         .text
         .as_ref()
@@ -401,7 +408,7 @@ fn write_content_paragraph<W: Write>(
     para_header.write_u8(0)?; // styleId
     para_header.write_u8(0)?; // divideSort
     para_header.write_u16::<LittleEndian>(1)?; // charShapeCount
-    para_header.write_u16::<LittleEndian>(0)?; // rangeTagCount
+    para_header.write_u16::<LittleEndian>(paragraph.hyperlinks.len() as u16)?; // rangeTagCount
     para_header.write_u16::<LittleEndian>(1)?; // lineAlignCount
     para_header.write_u32::<LittleEndian>(0)?; // instanceId
     para_header.write_u16::<LittleEndian>(0)?; // isMergedByTrack
@@ -428,6 +435,315 @@ fn write_content_paragraph<W: Write>(
         0x00, 0x00, 0x06, 0x00, // flags
     ];
     write_record(writer, 0x45, 1, &line_seg)?;
+
+    // PARA_RANGE_TAG (Hyperlinks)
+    // Tag ID: 0x46 (0x10 + 0x36(54))
+    if !paragraph.hyperlinks.is_empty() {
+        for hyperlink in &paragraph.hyperlinks {
+            let data = hyperlink.to_bytes();
+            write_record(writer, 0x46, 1, &data)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Write a table paragraph
+fn write_table_paragraph<W: Write>(
+    writer: &mut W,
+    table: &crate::model::control::Table,
+    is_last: bool,
+) -> Result<()> {
+    let rows = table.rows as u32;
+    let cols = table.cols as u32;
+    let _total_cells = rows * cols;
+
+    // PARA_HEADER for table container
+    // char_count = 2 (control marker) + 1 (paragraph end) = 3
+    let mut para_header = Vec::new();
+    let char_count = 2u32; // Extended control (0x0B) counts as 1 char + CR
+    let char_count_flags = if is_last {
+        char_count | 0x80000000
+    } else {
+        char_count
+    };
+    para_header.write_u32::<LittleEndian>(char_count_flags)?;
+    para_header.write_u32::<LittleEndian>(0x10)?; // controlMask = has table control
+    para_header.write_u16::<LittleEndian>(0)?;
+    para_header.write_u8(0)?;
+    para_header.write_u8(0)?;
+    para_header.write_u16::<LittleEndian>(1)?;
+    para_header.write_u16::<LittleEndian>(0)?;
+    para_header.write_u16::<LittleEndian>(1)?;
+    para_header.write_u32::<LittleEndian>(0)?;
+    para_header.write_u16::<LittleEndian>(0)?;
+    write_record(writer, 0x42, 0, &para_header)?;
+
+    // PARA_TEXT with table control marker
+    // Format: 0x0B (extended) + 'tbl ' (4 bytes) + reserved (8 bytes) + 0x0D (CR)
+    #[rustfmt::skip]
+    let para_text: [u8; 16] = [
+        0x0B, 0x00,             // Extended control character
+        0x20, 0x6C, 0x62, 0x74, // 'tbl ' in little-endian (space, l, b, t)
+        0x00, 0x00, 0x00, 0x00, // Reserved
+        0x00, 0x00, 0x00, 0x00, // Reserved
+        0x0D, 0x00,             // Paragraph end
+    ];
+    write_record(writer, 0x43, 1, &para_text)?;
+
+    // PARA_CHAR_SHAPE
+    let char_shape: [u8; 8] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    write_record(writer, 0x44, 1, &char_shape)?;
+
+    // PARA_LINE_SEG
+    #[rustfmt::skip]
+    let line_seg: [u8; 36] = [
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0xE8, 0x03, 0x00, 0x00,
+        0xE8, 0x03, 0x00, 0x00,
+        0x52, 0x03, 0x00, 0x00,
+        0x58, 0x02, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x18, 0xA6, 0x00, 0x00,
+        0x00, 0x00, 0x06, 0x00,
+    ];
+    write_record(writer, 0x45, 1, &line_seg)?;
+
+    // CTRL_HEADER for 'tbl '
+    let col_width = 5000u32;
+    let row_height = 1000u32;
+    let table_width = col_width * cols;
+    let table_height = row_height * rows;
+
+    let mut ctrl_header = Vec::new();
+    ctrl_header.write_all(b" lbt")?; // 'tbl ' reversed
+    ctrl_header.write_u32::<LittleEndian>(0x082a2211)?; // properties
+    ctrl_header.write_u32::<LittleEndian>(0)?; // vertical rel
+    ctrl_header.write_u32::<LittleEndian>(0)?; // horizontal rel
+    ctrl_header.write_u32::<LittleEndian>(table_width)?; // width
+    ctrl_header.write_u32::<LittleEndian>(table_height)?; // height
+    ctrl_header.write_u32::<LittleEndian>(0)?; // z-order
+    ctrl_header.write_u16::<LittleEndian>(140)?; // left margin
+    ctrl_header.write_u16::<LittleEndian>(140)?; // right margin
+    ctrl_header.write_u16::<LittleEndian>(140)?; // top margin
+    ctrl_header.write_u16::<LittleEndian>(140)?; // bottom margin
+    ctrl_header.write_u32::<LittleEndian>(0x12345678)?; // instance id
+    ctrl_header.write_u16::<LittleEndian>(0)?; // padding
+    write_record(writer, 0x47, 1, &ctrl_header)?;
+
+    // TABLE record (0x4F) - required table structure info
+    let mut table_data = Vec::new();
+    table_data.write_u32::<LittleEndian>(0)?; // properties
+    table_data.write_u16::<LittleEndian>(rows as u16)?;
+    table_data.write_u16::<LittleEndian>(cols as u16)?;
+    table_data.write_u16::<LittleEndian>(0)?; // cell spacing
+    table_data.write_u16::<LittleEndian>(0)?; // left margin
+    table_data.write_u16::<LittleEndian>(0)?; // right margin
+    table_data.write_u16::<LittleEndian>(0)?; // top margin
+    table_data.write_u16::<LittleEndian>(0)?; // bottom margin
+                                              // Row heights
+    for _ in 0..rows {
+        table_data.write_u16::<LittleEndian>(row_height as u16)?;
+    }
+    // Border fill id
+    table_data.write_u16::<LittleEndian>(1)?;
+    // Zone info count = 0
+    table_data.write_u16::<LittleEndian>(0)?;
+    write_record(writer, 0x4F, 2, &table_data)?;
+
+    // Write cells
+    for row in 0..rows {
+        for col in 0..cols {
+            write_table_cell(writer, row, col, col_width, row_height, table)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Write a single table cell
+fn write_table_cell<W: Write>(
+    writer: &mut W,
+    row: u32,
+    col: u32,
+    width: u32,
+    height: u32,
+    table: &crate::model::control::Table,
+) -> Result<()> {
+    // LIST_HEADER (0x4C) - cell container
+    let mut list_header = Vec::new();
+    list_header.write_u16::<LittleEndian>(1)?; // para count
+    list_header.write_u32::<LittleEndian>(0)?; // properties
+    list_header.write_u16::<LittleEndian>(col as u16)?; // col address
+    list_header.write_u16::<LittleEndian>(row as u16)?; // row address
+    list_header.write_u16::<LittleEndian>(1)?; // col span
+    list_header.write_u16::<LittleEndian>(1)?; // row span
+    list_header.write_u32::<LittleEndian>(width)?;
+    list_header.write_u32::<LittleEndian>(height)?;
+    list_header.write_u16::<LittleEndian>(100)?; // left margin
+    list_header.write_u16::<LittleEndian>(100)?; // right margin
+    list_header.write_u16::<LittleEndian>(100)?; // top margin
+    list_header.write_u16::<LittleEndian>(100)?; // bottom margin
+    list_header.write_u16::<LittleEndian>(1)?; // border fill id
+    list_header.write_u32::<LittleEndian>(width - 200)?; // text width
+    list_header.write_u8(0)?; // field name length = 0
+    write_record(writer, 0x4C, 2, &list_header)?;
+
+    // Get cell text from table
+    let cell_text = table
+        .get_cell(row as u16, col as u16)
+        .and_then(|_c| {
+            // The cell content is stored in the paragraph_list_id or we need to get it differently
+            // For now, we'll just use empty text since actual content is managed elsewhere
+            None::<&str>
+        })
+        .unwrap_or("");
+
+    // PARA_HEADER for cell content
+    let text_utf16 = string_to_utf16le(cell_text);
+    let char_count = (text_utf16.len() / 2 + 1) as u32; // +1 for CR
+
+    let mut para_header = Vec::new();
+    para_header.write_u32::<LittleEndian>(char_count | 0x80000000)?; // last in list
+    para_header.write_u32::<LittleEndian>(0)?;
+    para_header.write_u16::<LittleEndian>(0)?;
+    para_header.write_u8(0)?;
+    para_header.write_u8(0)?;
+    para_header.write_u16::<LittleEndian>(1)?;
+    para_header.write_u16::<LittleEndian>(0)?;
+    para_header.write_u16::<LittleEndian>(1)?;
+    para_header.write_u32::<LittleEndian>(0)?;
+    para_header.write_u16::<LittleEndian>(0)?;
+    write_record(writer, 0x42, 3, &para_header)?;
+
+    // PARA_TEXT
+    let mut para_text = text_utf16;
+    para_text.extend_from_slice(&[0x0D, 0x00]);
+    write_record(writer, 0x43, 4, &para_text)?;
+
+    // PARA_CHAR_SHAPE
+    write_record(writer, 0x44, 4, &[0u8; 8])?;
+
+    // PARA_LINE_SEG
+    #[rustfmt::skip]
+    let line_seg: [u8; 36] = [
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0xE8, 0x03, 0x00, 0x00,
+        0xE8, 0x03, 0x00, 0x00,
+        0x52, 0x03, 0x00, 0x00,
+        0x58, 0x02, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x10, 0x00, 0x00,
+        0x00, 0x00, 0x06, 0x00,
+    ];
+    write_record(writer, 0x45, 4, &line_seg)?;
+
+    Ok(())
+}
+
+fn write_picture_paragraph<W: Write>(
+    writer: &mut W,
+    picture: &crate::model::control::Picture,
+    is_last: bool,
+) -> Result<()> {
+    let char_count = 2u32;
+    let char_count_flags = if is_last {
+        char_count | 0x80000000
+    } else {
+        char_count
+    };
+
+    let mut para_header = Vec::new();
+    para_header.write_u32::<LittleEndian>(char_count_flags)?;
+    para_header.write_u32::<LittleEndian>(0x10)?;
+    para_header.write_u16::<LittleEndian>(0)?;
+    para_header.write_u8(0)?;
+    para_header.write_u8(0)?;
+    para_header.write_u16::<LittleEndian>(1)?;
+    para_header.write_u16::<LittleEndian>(0)?;
+    para_header.write_u16::<LittleEndian>(1)?;
+    para_header.write_u32::<LittleEndian>(0)?;
+    para_header.write_u16::<LittleEndian>(0)?;
+    write_record(writer, 0x42, 0, &para_header)?;
+
+    #[rustfmt::skip]
+    let para_text: [u8; 16] = [
+        0x0B, 0x00,
+        0x20, 0x6F, 0x73, 0x67, // 'gso ' reversed
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x0D, 0x00,
+    ];
+    write_record(writer, 0x43, 1, &para_text)?;
+
+    let char_shape: [u8; 8] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    write_record(writer, 0x44, 1, &char_shape)?;
+
+    #[rustfmt::skip]
+    let line_seg: [u8; 36] = [
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0xE8, 0x03, 0x00, 0x00,
+        0xE8, 0x03, 0x00, 0x00,
+        0x52, 0x03, 0x00, 0x00,
+        0x58, 0x02, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x18, 0xA6, 0x00, 0x00,
+        0x00, 0x00, 0x06, 0x00,
+    ];
+    write_record(writer, 0x45, 1, &line_seg)?;
+
+    let mut ctrl_header = Vec::new();
+    ctrl_header.write_all(b" osg")?; // 'gso ' reversed
+    ctrl_header.write_u32::<LittleEndian>(0x042a2211)?;
+    ctrl_header.write_u32::<LittleEndian>(0)?;
+    ctrl_header.write_u32::<LittleEndian>(0)?;
+    ctrl_header.write_u32::<LittleEndian>(picture.image_width)?;
+    ctrl_header.write_u32::<LittleEndian>(picture.image_height)?;
+    ctrl_header.write_u32::<LittleEndian>(0)?;
+    ctrl_header.write_u16::<LittleEndian>(0)?;
+    ctrl_header.write_u16::<LittleEndian>(0)?;
+    ctrl_header.write_u16::<LittleEndian>(0)?;
+    ctrl_header.write_u16::<LittleEndian>(0)?;
+    ctrl_header.write_u32::<LittleEndian>(picture.instance_id)?;
+    ctrl_header.write_u16::<LittleEndian>(0)?;
+    write_record(writer, 0x47, 1, &ctrl_header)?;
+
+    let mut shape_component = Vec::new();
+    shape_component.write_u32::<LittleEndian>(0)?;
+    shape_component.write_i32::<LittleEndian>(0)?;
+    shape_component.write_i32::<LittleEndian>(0)?;
+    shape_component.write_u16::<LittleEndian>(0)?;
+    shape_component.write_u16::<LittleEndian>(0)?;
+    shape_component.write_u32::<LittleEndian>(picture.image_width)?;
+    shape_component.write_u32::<LittleEndian>(picture.image_height)?;
+    shape_component.write_u16::<LittleEndian>(0)?;
+    shape_component.write_u16::<LittleEndian>(1)?;
+    shape_component.write_i32::<LittleEndian>(0)?;
+    shape_component.write_i32::<LittleEndian>(0)?;
+    shape_component.write_i32::<LittleEndian>(picture.image_width as i32)?;
+    shape_component.write_i32::<LittleEndian>(picture.image_height as i32)?;
+    write_record(writer, 0x51, 2, &shape_component)?;
+
+    let mut shape_picture = Vec::new();
+    shape_picture.write_u8(1)?;
+    shape_picture.write_u8(0)?;
+    shape_picture.write_u8(0)?;
+    shape_picture.write_u32::<LittleEndian>(0)?;
+    shape_picture.write_u16::<LittleEndian>(picture.bin_item_id)?;
+    shape_picture.write_u8(1)?;
+    shape_picture.write_i32::<LittleEndian>(0)?;
+    shape_picture.write_i32::<LittleEndian>(0)?;
+    shape_picture.write_i32::<LittleEndian>(picture.image_width as i32)?;
+    shape_picture.write_i32::<LittleEndian>(picture.image_height as i32)?;
+    shape_picture.write_i32::<LittleEndian>(0)?;
+    shape_picture.write_i32::<LittleEndian>(0)?;
+    shape_picture.write_i32::<LittleEndian>(picture.image_width as i32)?;
+    shape_picture.write_i32::<LittleEndian>(picture.image_height as i32)?;
+    shape_picture.write_u8(0)?;
+    write_record(writer, 0x67, 3, &shape_picture)?;
 
     Ok(())
 }
@@ -781,15 +1097,37 @@ fn serialize_id_mappings(doc_info: &crate::parser::doc_info::DocInfo) -> Result<
 }
 
 /// Serialize face name
+/// Structure: properties(1) + font_name_len(2) + font_name(utf16) +
+///            substitute_font_type(1) + substitute_font_len(2) + substitute_font(utf16) +
+///            font_type_info(10 bytes) + default_font_len(2) + default_font(utf16)
 fn serialize_face_name(face_name: &crate::model::char_shape::FaceName) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     let mut writer = Cursor::new(&mut data);
 
-    writer.write_u8(face_name.properties)?;
+    // Properties - set bit 1 to indicate substitute font info present
+    // Value 0x02 means: has substitute font info
+    writer.write_u8(0x02)?;
 
+    // Font name
     let font_name_utf16 = string_to_utf16le(&face_name.font_name);
     writer.write_u16::<LittleEndian>(font_name_utf16.len() as u16 / 2)?;
     writer.write_all(&font_name_utf16)?;
+
+    // Substitute font type (2 = TTF, 1 = HTF)
+    writer.write_u8(0x02)?;
+
+    // Font type info (10 bytes) - based on real HWP file analysis
+    // These values are common defaults for Korean fonts
+    #[rustfmt::skip]
+    let font_type_info: [u8; 9] = [
+        0x0B, 0x06, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01,
+    ];
+    writer.write_all(&font_type_info)?;
+
+    // Default font name (same as font_name for simplicity)
+    let default_font_utf16 = string_to_utf16le(&face_name.font_name);
+    writer.write_u16::<LittleEndian>(default_font_utf16.len() as u16 / 2)?;
+    writer.write_all(&default_font_utf16)?;
 
     Ok(data)
 }
@@ -834,8 +1172,8 @@ fn serialize_char_shape(char_shape: &crate::model::char_shape::CharShape) -> Res
     writer.write_u32::<LittleEndian>(char_shape.shadow_color)?;
     writer.write_u16::<LittleEndian>(char_shape.border_fill_id)?;
 
-    // Reserved bytes (needed for 72-byte size)
-    writer.write_u16::<LittleEndian>(0)?;
+    // Strike color (required for HWP 5.0.2.1+, 4 bytes)
+    writer.write_u32::<LittleEndian>(0x00000000)?;
 
     Ok(data)
 }
@@ -863,6 +1201,9 @@ fn serialize_para_shape(para_shape: &crate::model::para_shape::ParaShape) -> Res
     writer.write_u32::<LittleEndian>(para_shape.properties3)?;
     writer.write_u32::<LittleEndian>(para_shape.line_space_type)?;
 
+    // Reserved (HWP 5.0.2.1+ requires 58 bytes)
+    writer.write_u32::<LittleEndian>(0)?;
+
     Ok(data)
 }
 
@@ -886,6 +1227,7 @@ fn serialize_style(style: &crate::model::style::Style) -> Result<Vec<u8>> {
     writer.write_u16::<LittleEndian>(style.lang_id)?;
     writer.write_u16::<LittleEndian>(style.para_shape_id)?;
     writer.write_u16::<LittleEndian>(style.char_shape_id)?;
+    writer.write_u16::<LittleEndian>(0)?;
 
     Ok(data)
 }
@@ -897,18 +1239,15 @@ fn serialize_border_fill(border_fill: &crate::model::border_fill::BorderFill) ->
 
     writer.write_u16::<LittleEndian>(border_fill.properties)?;
 
-    // Write border lines
     serialize_border_line(&mut writer, &border_fill.left)?;
     serialize_border_line(&mut writer, &border_fill.right)?;
     serialize_border_line(&mut writer, &border_fill.top)?;
     serialize_border_line(&mut writer, &border_fill.bottom)?;
     serialize_border_line(&mut writer, &border_fill.diagonal)?;
 
-    // Write fill info (simplified)
-    writer.write_u8(border_fill.fill_info.fill_type as u8)?;
-    writer.write_u32::<LittleEndian>(border_fill.fill_info.back_color)?;
-    writer.write_u32::<LittleEndian>(border_fill.fill_info.pattern_color)?;
-    writer.write_u8(border_fill.fill_info.pattern_type as u8)?;
+    writer.write_u32::<LittleEndian>(border_fill.fill_info.fill_type)?;
+
+    writer.write_u32::<LittleEndian>(0)?;
 
     Ok(data)
 }

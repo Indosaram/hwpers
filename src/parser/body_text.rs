@@ -117,8 +117,8 @@ impl BodyTextParser {
                     }
                 }
 
-                // ParaRangeTag (0x54) - Contains hyperlink information
-                Some(HwpTag::ParaRangeTag) => {
+                // ParaRangeTag (0x54) or RangeTag (0x46) - Contains hyperlink information
+                Some(HwpTag::ParaRangeTag) | Some(HwpTag::RangeTag) => {
                     if let Some(ref mut para) = current_paragraph {
                         // Try to parse as hyperlink
                         if let Ok(hyperlink) =
