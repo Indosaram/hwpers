@@ -80,10 +80,10 @@ impl<'a> LayoutEngine<'a> {
         let mut pages = Vec::new();
 
         // Get page definition
-        let page_def = section
-            .page_def
-            .as_ref()
-            .expect("Section must have page definition");
+        let page_def = match section.page_def.as_ref() {
+            Some(page_def) => page_def,
+            None => return pages,
+        };
 
         let mut current_page = RenderedPage {
             width: page_def.width,
