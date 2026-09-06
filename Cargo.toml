@@ -26,7 +26,7 @@ byteorder = "1.5"
 thiserror = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
-zip = "2.2"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
 quick-xml = { version = "0.37", features = ["serialize"] }
 aes = "0.8"
 ecb = "0.1"
